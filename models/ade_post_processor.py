@@ -1,15 +1,14 @@
 import numpy as np
-from matplotlib import pyplot as plt
-
+import torch
+from torch import nn
 
 class AverageDisplacementErrorEvaluator:
 
-    def __init__(self, matcher, output_dir, prefix='', img_size = 1):
+    def __init__(self, matcher, prefix='', img_size = 1):
         self.matcher = matcher  # Matcher for finding the best target for each prediction
         self.ADE = []  # List to store displacement errors
         self.prefix = prefix  # Prefix for summary keys
         self.result = None  # Placeholder for accumulated result
-        self.output_dir = output_dir
         self.img_size = img_size
 
     def update(self, outputs, targets):
@@ -61,20 +60,6 @@ class AverageDisplacementErrorEvaluator:
         Returns:
         dict: Dictionary containing the ADE result with the prefix as a key.
         """
-        timestamps = list(range(len(self.result)))
-        plt.figure(figsize=(8, 5))
-        plt.plot(timestamps, self.result, marker='o', label='ADE')
-        plt.title(f'ADE vs. Timestamp{" (" + self.prefix + ")" if self.prefix else ""}')
-        plt.xlabel('Timestamp')
-        plt.ylabel('ADE')
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-
-        # Save the plot
-        plt.savefig(self.output_dir)
-        plt.close()
-
         return {f'{self.prefix+"_" if self.prefix else ""}ADE_{t}': ade for t, ade in enumerate(self.result)}
 
     def _get_src_permutation_idx(self, indices):

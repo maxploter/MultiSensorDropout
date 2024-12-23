@@ -1,7 +1,14 @@
+from torch import Tensor
+
 from functools import wraps
 from math import pi
 
-import train
+import torch
+import torch.nn.functional as F
+from einops import rearrange, repeat
+from einops.layers.torch import Reduce
+from torch import Tensor
+from torch import nn, einsum
 
 
 def exists(val):
@@ -31,7 +38,7 @@ def cache_fn(f):
 
 def fourier_encode(x, max_freq, num_bands=4):
     x = x.unsqueeze(-1)
-    device, dtype, orig_x = train.device, x.dtype, x
+    device, dtype, orig_x = x.device, x.dtype, x
 
     scales = torch.linspace(1., max_freq / 2, num_bands, device=device, dtype=dtype)
     scales = scales[(*((None,) * (len(x.shape) - 1)), Ellipsis)]
@@ -372,8 +379,6 @@ class ObjectDetectionHead(nn.Module):
 
 
 def build_model_perceiver(args, num_classes):
-
-    device = train.device(train.device)
 
     backbone = nn.Identity()
 

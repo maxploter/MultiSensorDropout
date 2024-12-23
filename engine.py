@@ -2,6 +2,10 @@ import math
 import sys
 from collections import defaultdict
 
+import torch
+import torchmetrics
+from tqdm import tqdm
+
 from models.ade_post_processor import AverageDisplacementErrorEvaluator
 
 
@@ -72,13 +76,11 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
     return avg_values
 
 
-def evaluate(model, dataloader, criterion, postprocessors, epoch, device, output_dir, experiment='default'):
+def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
 
     average_displacement_error_evaluator = None
     if 'trajectory' in postprocessors:
       average_displacement_error_evaluator = AverageDisplacementErrorEvaluator(
-          output_dir=f'{output_dir}/ade_{experiment}_epoch-{epoch}.png',
-          prefix=experiment,
           matcher=criterion.matcher,
           img_size=dataloader.dataset.img_size,
         )

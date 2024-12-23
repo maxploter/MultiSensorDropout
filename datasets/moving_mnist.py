@@ -2,7 +2,31 @@ import copy
 import math
 import random
 from functools import partial
+from types import SimpleNamespace
 
+import torch
+import torchvision.transforms as T
+import torchvision.transforms.functional as TF
+from torch.utils.data import Dataset
+from torchvision.datasets import MNIST
+
+mnist_stats    = ([0.131], [0.308])
+
+def padding(img_size=64, mnist_size=28): return (img_size - mnist_size) // 2
+
+def apply_n_times(tf, x, n=1):
+    "Apply `tf` to `x` `n` times, return all values"
+    sequence = [x]
+    for n in range(n):
+        sequence.append(tf(sequence[n]))
+    return sequence
+
+affine_params = SimpleNamespace(
+    angle=(-4, 4),
+    translate=((-5, 5), (-5, 5)),
+    scale=(.8, 1.2),
+    shear=(-3, 3),
+)
 
 def get_affine_transformed_coordinates(point, center, angle=0, translate=(0, 0), scale=1, shear=(0, 0)):
     # Convert degrees to radians for rotation and shear

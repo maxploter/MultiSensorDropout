@@ -1,7 +1,9 @@
 from types import SimpleNamespace
 
 import numpy as np
+from torchvision.datasets import MNIST
 
+from datasets.moving_mnist import MovingMNIST
 from models.center_point_lstm import SimpleCenterNetWithLSTM
 from models.perceiver_ar import build_perceiver_ar_model
 

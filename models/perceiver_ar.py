@@ -1,4 +1,9 @@
-import train
+from models.perceiver import build_model_perceiver, PerceiverDetection
+import torch
+from torch import nn
+import torch
+from torch import nn
+
 from models.perceiver import build_model_perceiver, PerceiverDetection
 
 
@@ -17,7 +22,7 @@ class PerceiverAr(nn.Module):
 
         src = samples.permute(1, 0, 2, 3, 4)  # change dimension order from BT___ to TB___
 
-        device = train.device
+        device = None
         result = {'pred_logits': [], 'pred_center_points': []}
 
         orig_size = torch.stack([t[-1]["orig_size"] for t in targets], dim=0).to(device)
