@@ -1,5 +1,3 @@
-from torch import Tensor
-
 from functools import wraps
 from math import pi
 
@@ -237,7 +235,7 @@ class Perceiver(nn.Module):
             mask=None,
             return_embeddings=False
     ):
-        b, *axis, _, device, dtype = *data.shape, train.device, data.dtype
+        b, *axis, _, device, dtype = *data.shape, data.device, data.dtype
         assert len(axis) == self.input_axis, 'input data must have the right number of axis'
 
         if self.fourier_encode_data:

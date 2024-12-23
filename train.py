@@ -28,10 +28,9 @@ def parse_args():
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--num_objects', type=int, default=4, help='Number of objects (TODO: refactor it)')
     parser.add_argument('--num_classes', type=int, default=10, help='Number of classes')
-    parser.add_argument('--model', type=str, default='lstm', help='Model type')
-    parser.add_argument('--lstm_hidden_size', type=int, default=128, help='Hidden size of LSTM')
+    parser.add_argument('--model', type=str, default='perceiver', help='Model type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-    parser.add_argument('--experiment', type=str, default='experiment_2024-12-06_v4', help='Experiment name')
+    parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
     parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
@@ -58,6 +57,9 @@ def parse_args():
     parser.add_argument('--nheads', type=int, default=1, help='Number of latent self-attention heads')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout rate')
     parser.add_argument('--self_per_cross_attn', type=int, default=1, help='Number of self-attention blocks per cross-attention block')
+
+    # LSTM model specific arguments
+    parser.add_argument('--lstm_hidden_size', type=int, default=128, help='Hidden size of LSTM')
 
     args = parser.parse_args()
     return args

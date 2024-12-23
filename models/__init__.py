@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 
 import numpy as np
@@ -11,13 +12,6 @@ from models.perceiver_ar import build_perceiver_ar_model
 def build_model(args):
     assert 'moving-mnist' in args.dataset.lower()
     num_classes = 10
-    dataset_name = args.dataset.lower()
-    if '1digit' in dataset_name:
-        num_objects = 1
-    elif '2digit' in dataset_name:
-        num_objects = 2
-    else:
-        raise ValueError(f'unknown {dataset_name}')
 
     if args.model == 'lstm':
         return SimpleCenterNetWithLSTM(num_objects=args.num_objects, num_classes=num_classes, lstm_hidden_size=args.lstm_hidden_size)
@@ -31,12 +25,11 @@ def build_dataset(split, args, frame_dropout_pattern=None):
     dataset_name = args.dataset.lower()
     assert dataset_name.startswith('moving-mnist')
 
-    if '1digit' in dataset_name:
-        num_digits = [1]
-    elif '2digit' in dataset_name:
-        num_digits = [2]
+    match = re.search(r'(\d+)digit', dataset_name)
+    if match:
+        num_digits = [int(match.group(1))]
     else:
-        raise ValueError(f'unknown {dataset_name}')
+        raise ValueError(f'Unknown dataset name: {dataset_name}')
 
     split_indices_attr = f"{split}_split_indices"
 
@@ -83,6 +76,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             frame_dropout_probs=args.frame_dropout_probs,
             sampler_steps=args.sampler_steps,
             affine_params=affine_params,
+            dataset_fraction=args.train_dataset_fraction,
         )
     elif split == 'val':
         dataset = MovingMNIST(
