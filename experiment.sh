@@ -27,4 +27,9 @@
 module load miniconda3
 conda activate sensor_dropout
 
-python train.py with \
+timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+output_dir="not_tracked_dir/output_perceiver_${timestamp}"
+
+python train.py \
+    --output_dir $output_dir \
+    --train_dataset_fraction 0.2
