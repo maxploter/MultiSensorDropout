@@ -2,7 +2,31 @@ import copy
 import math
 import random
 from functools import partial
+from types import SimpleNamespace
 
+import torch
+import torchvision.transforms as T
+import torchvision.transforms.functional as TF
+from torch.utils.data import Dataset
+from torchvision.datasets import MNIST
+
+mnist_stats    = ([0.131], [0.308])
+
+def padding(img_size=64, mnist_size=28): return (img_size - mnist_size) // 2
+
+def apply_n_times(tf, x, n=1):
+    "Apply `tf` to `x` `n` times, return all values"
+    sequence = [x]
+    for n in range(n):
+        sequence.append(tf(sequence[n]))
+    return sequence
+
+affine_params = SimpleNamespace(
+    angle=(-4, 4),
+    translate=((-5, 5), (-5, 5)),
+    scale=(.8, 1.2),
+    shear=(-3, 3),
+)
 
 def get_affine_transformed_coordinates(point, center, angle=0, translate=(0, 0), scale=1, shear=(0, 0)):
     # Convert degrees to radians for rotation and shear
@@ -173,6 +197,7 @@ class MovingMNIST(Dataset):
                  split_indices=None,
                  sampler_steps=[], # epochs at which assign coresponding frame dropout probability
                  frame_dropout_probs=[], # absolut frame drop probability values
+                 dataset_fraction = 1,
                  ):
         self.bounce = bounce
         self.use_center_bounce = use_center_bounce
@@ -205,6 +230,7 @@ class MovingMNIST(Dataset):
 
         self.keep_frame_mask = None
         self.frame_dropout_prob = 0.0
+        self.dataset_fraction = dataset_fraction
 
         self.sampler_steps = sampler_steps
         self.frame_dropout_probs = frame_dropout_probs
@@ -356,24 +382,6 @@ class MovingMNIST(Dataset):
 
     def __len__(self):
         if self.sequences is None:
-          return len(self.ids)
+          return int(len(self.ids) * self.dataset_fraction)
         else:
           return len(self.sequences)
-
-    def save(self, fname="mmnist.pt"):
-        data_imgs = []
-        data_targets = []
-        for i in progress_bar(range(len(self.ids))):
-            imgs, targets = self.generate_sequence(i)
-            data_imgs.append(imgs)
-
-            data_targets.append(targets)
-
-        print("Saving dataset")
-        torch.save(
-            {
-                'imgs': torch.stack(data_imgs),
-                'targets': data_targets,
-            },
-            f"{fname}"
-            )

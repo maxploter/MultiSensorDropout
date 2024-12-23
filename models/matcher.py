@@ -1,3 +1,7 @@
+import torch
+import torch.nn as nn
+from scipy.optimize import linear_sum_assignment
+
 class HungarianMatcher(nn.Module):
     """This class computes an assignment between the targets and the predictions of the network
 

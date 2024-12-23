@@ -1,4 +1,6 @@
-import train
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 class SimpleCenterNetWithLSTM(nn.Module):
@@ -69,7 +71,7 @@ class SimpleCenterNetWithLSTM(nn.Module):
                 x = F.relu(self.fc1(x))
 
             else:
-                x = torch.zeros(1, 128).to(train.device)
+                x = torch.zeros(1, 128).to(samples.device)
 
             temporal_features.append(x)
 

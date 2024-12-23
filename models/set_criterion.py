@@ -1,4 +1,7 @@
-import train
+import torch
+import torch.nn.functional as F
+from torch import nn
+
 from models.matcher import build_matcher
 from util.misc import sigmoid_focal_loss, accuracy
 
@@ -27,16 +30,16 @@ class SetCriterion(nn.Module):
         idx = self._get_src_permutation_idx(indices)
 
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-
+        device = next(iter(outputs.values())).device
         # [batch_size, number_queries]
         target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=train.device)
+                                    dtype=torch.int64, device=device)
 
         target_classes[idx] = target_classes_o
 
         # [batch_size, number_queries, number_of_classes+1]
         target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2] + 1],
-                                            dtype=src_logits.dtype, layout=src_logits.layout, device=train.device)
+                                            dtype=src_logits.dtype, layout=src_logits.layout, device=device)
 
         #
         target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
@@ -79,7 +82,7 @@ class SetCriterion(nn.Module):
 
         num_objects = sum(len(t["labels"]) for t in targets)
         num_objects = torch.as_tensor(
-            [num_objects], dtype=torch.float, device=train.device)
+            [num_objects], dtype=torch.float, device=next(iter(outputs.values())).device)
 
         losses = {}
         loss_labels = self.loss_labels_focal(outputs, targets, indecies, num_objects)
