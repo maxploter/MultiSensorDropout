@@ -160,7 +160,7 @@ def main(args):
         log_stats = {
             **{f'train_{k}': v for k, v in train_stats.items()},
             **{f'test_default_{k}': v for k, v in test_stats.items()},
-            **{f'test_blind_{k}': v for k, v in blind_stats.items() if 'ADE' in k},
+            **{f'test_blind_{k}': v for k, v in blind_stats.items()},
             'epoch': epoch,
             'n_parameters': n_parameters,
             'frame_dropout_prob': dataset_train.frame_dropout_prob
