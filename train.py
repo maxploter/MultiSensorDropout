@@ -220,6 +220,9 @@ def get_wandb_init_config(args):
     if args.wandb_id:
         result['id'] = args.wandb_id
         result['resume'] = 'must'
+    else:
+        notes = f'model:{args.model},num_objects:{args.num_objects}'
+        result['notes'] = notes
 
     return result
 
