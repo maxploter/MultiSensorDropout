@@ -9,7 +9,7 @@ from tqdm import tqdm
 from models.ade_post_processor import AverageDisplacementErrorEvaluator
 
 
-def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
+def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device, profiler=None):
     model.train()
     metric_logger = defaultdict(lambda: torchmetrics.MeanMetric().to(device))
 
@@ -67,6 +67,8 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
                 "lr": optimizer.param_groups[0]["lr"],
                 'frame_dropout_prob': dataloader.dataset.frame_dropout_prob,
             })
+        if profiler:
+            profiler.step()
 
     avg_values = {k: metric.compute().item() for k, metric in metric_logger.items()}
 

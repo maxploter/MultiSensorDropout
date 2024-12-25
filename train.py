@@ -70,7 +70,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def main(args):
+def main(args, profiler):
 
     print(args)
 
@@ -161,7 +161,7 @@ def main(args):
         dataset_val_blind.set_epoch(start_epoch)
 
     for epoch in range(start_epoch, args.epochs):
-        train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device)
+        train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device, profiler)
 
         test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
         blind_stats = {}
@@ -229,4 +229,22 @@ def get_wandb_init_config(args):
 
 if __name__ == '__main__':
     args = parse_args()
-    main(args)
+
+    def trace_handler(prof):
+        print(prof.key_averages().table(
+            sort_by="self_cuda_time_total", row_limit=-1))
+        # prof.export_chrome_trace("/tmp/test_trace_" + str(prof.step_num) + ".json")
+
+    with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            schedule=torch.profiler.schedule(
+                wait=100,
+                warmup=100,
+                active=100,
+                repeat=2),
+            on_trace_ready=trace_handler
+    ) as p:
+        main(args, p)
