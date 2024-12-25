@@ -27,9 +27,16 @@
 module load miniconda3
 conda activate sensor_dropout
 
+# Default experiment. Frame drop out is disabled.
+
+model='perceiver'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
-output_dir="not_tracked_dir/output_perceiver_${timestamp}"
+output_dir="not_tracked_dir/output_${model}_${timestamp}"
 
 python train.py \
     --output_dir $output_dir \
-    --train_dataset_fraction 0.2
+    --train_dataset_fraction 1 \
+    --sampler_steps \
+    --frame_dropout_probs \
+    --num_objects 10 \
+    --img_size 128
