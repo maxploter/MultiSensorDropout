@@ -47,6 +47,7 @@ done
 python train.py \
     --output_dir $output_dir \
     --train_dataset_fraction 0.5 \
+    --num_workers 4 \
     --sampler_steps \
     --frame_dropout_probs \
     --num_objects $num_objects \
