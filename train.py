@@ -40,6 +40,7 @@ def parse_args():
     # Dataset
     parser.add_argument('--dataset', type=str, default='moving-mnist', help='Dataset name')
     parser.add_argument('--num_objects', type=int, default=2, help='Number of objects')
+    parser.add_argument('--num_workers', type=int, default=0, help='Number of workers')
     parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
     parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
     parser.add_argument('--img_size', type=int, default=64, help='Image size')
@@ -102,15 +103,15 @@ def main(args, profiler):
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
-    dataloader_train = DataLoader(dataset_train, sampler=sampler_train, batch_size=args.batch_size, collate_fn=collate_fn)
-    dataloader_val = DataLoader(dataset_val, sampler=sampler_val, batch_size=args.batch_size, collate_fn=collate_fn)
+    dataloader_train = DataLoader(dataset_train, sampler=sampler_train, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=args.num_workers)
+    dataloader_val = DataLoader(dataset_val, sampler=sampler_val, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=args.num_workers)
 
     dataloader_val_blind = None
     dataset_val_blind = None
     if args.frame_dropout_pattern is not None:
         dataset_val_blind = build_dataset('val', args, frame_dropout_pattern=args.frame_dropout_pattern)
         sampler_val_blind = torch.utils.data.SequentialSampler(dataset_val_blind)
-        dataloader_val_blind = DataLoader(dataset_val_blind, sampler=sampler_val_blind, batch_size=args.batch_size, collate_fn=collate_fn)
+        dataloader_val_blind = DataLoader(dataset_val_blind, sampler=sampler_val_blind, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=args.num_workers)
 
     # Model, criterion, optimizer, and scheduler
     model = build_model(args)
