@@ -13,15 +13,15 @@
 
 # Node configurations (commented out)
 ## falcone configurations
-#SBATCH --gres=gpu:tesla:4
+#SBATCH --gres=gpu:tesla:1
 #SBATCH --cpus-per-task=4
 
 ## Pegasus configuration
-##SBATCH --gres=gpu:a100-40g:4
+##SBATCH --gres=gpu:a100-40g:1
 ##SBATCH --cpus-per-task=24
 
 ## Pegasus2 configuration
-##SBATCH --gres=gpu:a100-80g:2
+##SBATCH --gres=gpu:a100-80g:1
 ##SBATCH --cpus-per-task=16
 
 module load miniconda3
@@ -47,6 +47,7 @@ done
 python train.py \
     --output_dir $output_dir \
     --train_dataset_fraction 0.5 \
+    --num_workers 4 \
     --sampler_steps \
     --frame_dropout_probs \
     --num_objects $num_objects \
