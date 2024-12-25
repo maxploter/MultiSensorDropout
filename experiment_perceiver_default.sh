@@ -33,10 +33,21 @@ model='perceiver'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
 
+num_objects=2
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    --num_objects) num_objects="$2"; shift ;;  # Parse --num_objects and its value
+    *) echo "Unknown parameter passed: $1"; exit 1 ;;
+  esac
+  shift
+done
+
 python train.py \
     --output_dir $output_dir \
-    --train_dataset_fraction 1 \
+    --train_dataset_fraction 0.5 \
     --sampler_steps \
     --frame_dropout_probs \
-    --num_objects 10 \
+    --num_objects $num_objects \
     --img_size 128
