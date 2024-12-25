@@ -105,7 +105,10 @@ class SetCriterion(nn.Module):
         return batch_idx, tgt_idx
 
 
-def build_criterion(num_classes):
+def build_criterion(args):
+    assert 'moving-mnist' in args.dataset.lower()
+    num_classes = 10
+
     matcher = build_matcher()
     return SetCriterion(
         num_classes,

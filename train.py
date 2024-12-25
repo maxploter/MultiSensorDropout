@@ -11,8 +11,9 @@ import yaml
 from torch.utils.data import DataLoader
 
 import wandb
+from datasets import build_dataset
 from engine import train_one_epoch, evaluate
-from models import build_dataset, build_model
+from models import build_model
 from models.ade_post_processor import PostProcessTrajectory
 from models.set_criterion import build_criterion
 from util.misc import collate_fn, is_main_process, get_sha, get_rank
@@ -23,25 +24,30 @@ def parse_args():
 
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training')
-    parser.add_argument('--epochs', type=int, default=14, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=18, help='Number of training epochs')
     parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
-    parser.add_argument('--num_objects', type=int, default=4, help='Number of objects (TODO: refactor it)')
-    parser.add_argument('--num_classes', type=int, default=10, help='Number of classes')
+    parser.add_argument('--scheduler_step_size', type=int, default=12, help='Scheduler step size')
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-    parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
-    parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
-    parser.add_argument('--frame_dropout_probs', nargs='+', type=float, default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6], help='List of frame dropout probabilities')
-    parser.add_argument('--sampler_steps', nargs='+', type=int, default=[2, 4, 6, 8, 10], help='Sampler steps')
-    parser.add_argument('--frame_dropout_pattern', type=str, default='00001111', help='Frame dropout pattern')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
-    parser.add_argument('--dataset', type=str, default='moving-mnist-2digit-tr', help='Dataset name')
 
     parser.add_argument('--train_val_split_ratio', type=float, default=0.8, help='Train-validation split ratio')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use (e.g., cpu or cuda)')
+
+    # Dataset
+    parser.add_argument('--dataset', type=str, default='moving-mnist', help='Dataset name')
+    parser.add_argument('--num_objects', type=int, default=2, help='Number of objects')
+    parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
+    parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
+    parser.add_argument('--img_size', type=int, default=64, help='Image size')
+    parser.add_argument('--bounce', action='store_true', help='Bounce digits against walls')
+    parser.add_argument('--overlap_free_initial_position', action='store_true', help='Place digits initially without overlap (as best as we could).')
+    parser.add_argument('--frame_dropout_pattern', type=str, required=False, help='Frame dropout pattern')
+    parser.add_argument('--frame_dropout_probs', nargs='*', type=float, default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6], help='List of frame dropout probabilities')
+    parser.add_argument('--sampler_steps', nargs='*', type=int, default=[2, 4, 6, 8, 10], help='Sampler steps')
 
     # wandb
     parser.add_argument('--wandb_project', type=str, default='sensor-dropout', help='Wandb project')
@@ -92,15 +98,19 @@ def main(args):
     # Dataset and dataloaders
     dataset_train = build_dataset('train', args)
     dataset_val = build_dataset('val', args)
-    dataset_val_blind = build_dataset('val', args, frame_dropout_pattern=args.frame_dropout_pattern)
 
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    sampler_val_blind = torch.utils.data.SequentialSampler(dataset_val_blind)
 
     dataloader_train = DataLoader(dataset_train, sampler=sampler_train, batch_size=args.batch_size, collate_fn=collate_fn)
     dataloader_val = DataLoader(dataset_val, sampler=sampler_val, batch_size=args.batch_size, collate_fn=collate_fn)
-    dataloader_val_blind = DataLoader(dataset_val_blind, sampler=sampler_val_blind, batch_size=args.batch_size, collate_fn=collate_fn)
+
+    dataloader_val_blind = None
+    dataset_val_blind = None
+    if args.frame_dropout_pattern is not None:
+        dataset_val_blind = build_dataset('val', args, frame_dropout_pattern=args.frame_dropout_pattern)
+        sampler_val_blind = torch.utils.data.SequentialSampler(dataset_val_blind)
+        dataloader_val_blind = DataLoader(dataset_val_blind, sampler=sampler_val_blind, batch_size=args.batch_size, collate_fn=collate_fn)
 
     # Model, criterion, optimizer, and scheduler
     model = build_model(args)
@@ -111,8 +121,8 @@ def main(args):
     ]
 
     optimizer = torch.optim.AdamW(param_dicts, lr=args.learning_rate, weight_decay=args.weight_decay)
-    criterion = build_criterion(args.num_classes)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=12, gamma=0.1)
+    criterion = build_criterion(args)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step_size, gamma=0.1)
 
     # Resume from checkpoint
     if args.resume:
@@ -146,13 +156,18 @@ def main(args):
 
     dataset_train.set_epoch(start_epoch)
     dataset_val.set_epoch(start_epoch)
-    dataset_val_blind.set_epoch(start_epoch)
+
+    if dataset_val_blind:
+        dataset_val_blind.set_epoch(start_epoch)
 
     for epoch in range(start_epoch, args.epochs):
         train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device)
 
         test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
-        blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
+        blind_stats = {}
+
+        if dataloader_val_blind:
+            blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
 
         lr_scheduler.step()
 
@@ -189,7 +204,8 @@ def main(args):
 
         dataset_train.step_epoch()
         dataset_val.step_epoch()
-        dataset_val_blind.step_epoch()
+        if dataset_val_blind:
+            dataset_val_blind.step_epoch()
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -204,6 +220,9 @@ def get_wandb_init_config(args):
     if args.wandb_id:
         result['id'] = args.wandb_id
         result['resume'] = 'must'
+    else:
+        notes = f'model:{args.model},num_objects:{args.num_objects}'
+        result['notes'] = notes
 
     return result
 
