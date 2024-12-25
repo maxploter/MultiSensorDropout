@@ -31,19 +31,20 @@ def parse_args():
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
-    parser.add_argument('--frame_dropout_probs', nargs='+', type=float, default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6], help='List of frame dropout probabilities')
+    parser.add_argument('--frame_dropout_probs', nargs='*', type=float, default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6], help='List of frame dropout probabilities')
+    parser.add_argument('--sampler_steps', nargs='*', type=int, default=[2, 4, 6, 8, 10], help='Sampler steps')
     parser.add_argument('--frame_dropout_pattern', type=str, default='00001111', help='Frame dropout pattern')
-    parser.add_argument('--sampler_steps', nargs='+', type=int, default=[2, 4, 6, 8, 10], help='Sampler steps')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
 
     parser.add_argument('--train_val_split_ratio', type=float, default=0.8, help='Train-validation split ratio')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use (e.g., cpu or cuda)')
 
     # Dataset
-    parser.add_argument('--dataset', type=str, default='moving-mnist-2digit-tr', help='Dataset name')
-    parser.add_argument('--num_objects', type=int, default=4, help='Number of objects (TODO: refactor it)')
+    parser.add_argument('--dataset', type=str, default='moving-mnist', help='Dataset name')
+    parser.add_argument('--num_objects', type=int, default=2, help='Number of objects')
     parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
     parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
+    parser.add_argument('--img_size', type=int, default=64, help='Image size')
     parser.add_argument('--bounce', action='store_true', help='Bounce digits against walls')
     parser.add_argument('--overlap_free_initial_position', action='store_true', help='Place digits initially without overlap (as best as we could).')
 

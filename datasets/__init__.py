@@ -1,4 +1,3 @@
-import re
 from types import SimpleNamespace
 
 import numpy as np
@@ -12,11 +11,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
     dataset_name = args.dataset.lower()
     assert dataset_name.startswith('moving-mnist')
 
-    match = re.search(r'(\d+)digit', dataset_name)
-    if match:
-        num_digits = [int(match.group(1))]
-    else:
-        raise ValueError(f'Unknown dataset name: {dataset_name}')
+    num_digits = [args.num_objects]
 
     split_indices_attr = f"{split}_split_indices"
 
@@ -55,6 +50,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             normalize=True,
             bounce=args.bounce,
             num_digits=num_digits,
+            img_size=args.img_size,
             num_frames=args.num_frames,
             split_indices=split_indices,
             frame_dropout_probs=args.frame_dropout_probs,
@@ -68,6 +64,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             normalize=True,
             bounce=args.bounce,
             num_digits=num_digits,
+            img_size=args.img_size,
             num_frames=args.num_frames,
             split_indices=split_indices,
             frame_dropout_pattern=frame_dropout_pattern,

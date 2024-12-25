@@ -391,7 +391,6 @@ class MovingMNIST(Dataset):
 
 
     def __getitem__(self, idx):
-      print(f'Get {idx}')
       if self.sequences is None:
           images, targets = self.generate_sequence(idx)
       else:
