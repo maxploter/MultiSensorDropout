@@ -7,10 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import wandb
 import yaml
 from torch.utils.data import DataLoader
 
+import wandb
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
@@ -24,9 +24,10 @@ def parse_args():
 
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training')
-    parser.add_argument('--epochs', type=int, default=14, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=18, help='Number of training epochs')
     parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
+    parser.add_argument('--scheduler_step_size', type=int, default=12, help='Scheduler step size')
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
 
@@ -121,7 +122,7 @@ def main(args):
 
     optimizer = torch.optim.AdamW(param_dicts, lr=args.learning_rate, weight_decay=args.weight_decay)
     criterion = build_criterion(args)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=12, gamma=0.1)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step_size, gamma=0.1)
 
     # Resume from checkpoint
     if args.resume:
