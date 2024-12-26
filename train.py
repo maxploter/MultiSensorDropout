@@ -252,6 +252,9 @@ def get_wandb_init_config(args):
         if args.backbone is not None:
             notes += f',backbone:{args.backbone}'
 
+        if args.frame_dropout_probs is not None and len(args.frame_dropout_probs) > 0:
+            notes += f',frame_dropout_probs:{len(args.frame_dropout_probs)}'
+
         result['notes'] = notes
 
     return result
