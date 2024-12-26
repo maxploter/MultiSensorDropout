@@ -7,10 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import wandb
 import yaml
 from torch.utils.data import DataLoader
 
-import wandb
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--scheduler_step_size', type=int, default=12, help='Scheduler step size')
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
+    parser.add_argument('--backbone', type=str, help='Backbone type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
