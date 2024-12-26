@@ -7,10 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import wandb
 import yaml
 from torch.utils.data import DataLoader
 
+import wandb
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
@@ -26,6 +26,8 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training')
     parser.add_argument('--epochs', type=int, default=18, help='Number of training epochs')
     parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
+    parser.add_argument('--learning_rate_backbone', type=float, default=1e-4, help='Learning rate')
+    parser.add_argument('--learning_rate_backbone_names', default=["backbone"], type=str, nargs='+')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--scheduler_step_size', type=int, default=12, help='Scheduler step size')
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
@@ -121,9 +123,26 @@ def main(args):
     model = build_model(args)
     postprocessors = {'trajectory': PostProcessTrajectory()}
 
+    def match_name_keywords(n, name_keywords):
+        out = False
+        for b in name_keywords:
+            if b in n:
+                out = True
+                break
+        return out
+
     param_dicts = [
-        {"params": [p for n, p in model.named_parameters() if p.requires_grad], "lr": args.learning_rate},
+        {
+            "params": [p for n, p in model.named_parameters() if not match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
+            "lr": args.learning_rate
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
+            "lr": args.learning_rate_backbone,
+        },
     ]
+
+    print(f'Params sizes: {[len(p["params"]) for p in param_dicts]}')
 
     optimizer = torch.optim.AdamW(param_dicts, lr=args.learning_rate, weight_decay=args.weight_decay)
     criterion = build_criterion(args)
