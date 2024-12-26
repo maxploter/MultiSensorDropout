@@ -1,8 +1,8 @@
 import argparse
+import datetime
 import json
 import random
 import time
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -50,8 +50,10 @@ def parse_args():
     parser.add_argument('--bounce', action='store_true', help='Bounce digits against walls')
     parser.add_argument('--overlap_free_initial_position', action='store_true', help='Place digits initially without overlap (as best as we could).')
     parser.add_argument('--frame_dropout_pattern', type=str, required=False, help='Frame dropout pattern')
-    parser.add_argument('--frame_dropout_probs', nargs='*', type=float, default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6], help='List of frame dropout probabilities')
-    parser.add_argument('--sampler_steps', nargs='*', type=int, default=[2, 4, 6, 8, 10], help='Sampler steps')
+    parser.add_argument('--frame_dropout_probs', nargs='*', type=float,
+                        default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
+    parser.add_argument('--sampler_steps', nargs='*', type=int,
+                        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], help='Sampler steps')
 
     # wandb
     parser.add_argument('--wandb_project', type=str, default='sensor-dropout', help='Wandb project')
@@ -100,8 +102,8 @@ def main(args):
             open(output_dir / 'config.yaml', 'w'), allow_unicode=True)
 
     # Dataset and dataloaders
-    dataset_train = build_dataset('train', args)
-    dataset_val = build_dataset('val', args)
+    dataset_train = measure_time(build_dataset, 'train', args)
+    dataset_val = measure_time(build_dataset, 'val', args)
 
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     sampler_val = torch.utils.data.SequentialSampler(dataset_val)
@@ -246,10 +248,22 @@ def get_wandb_init_config(args):
         result['resume'] = 'must'
     else:
         notes = f'model:{args.model},num_objects:{args.num_objects}'
+
+        if args.backbone is not None:
+            notes += f',backbone:{args.backbone}'
+
         result['notes'] = notes
 
     return result
 
+
+def measure_time(func, *args, **kwargs):
+    start_time = time.time()
+    result = func(*args, **kwargs)
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"{func.__name__} execution time: {execution_time:.4f} seconds")
+    return result
 
 if __name__ == '__main__':
     args = parse_args()
