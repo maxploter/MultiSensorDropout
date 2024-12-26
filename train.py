@@ -255,6 +255,9 @@ def get_wandb_init_config(args):
         if args.frame_dropout_probs is not None and len(args.frame_dropout_probs) > 0:
             notes += f',frame_dropout_probs:{len(args.frame_dropout_probs)}'
 
+        if args.hidden_dim != 128:
+            notes += f',hidden_dim:{args.hidden_dim}'
+
         result['notes'] = notes
 
     return result
