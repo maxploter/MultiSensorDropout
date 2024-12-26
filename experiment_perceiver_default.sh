@@ -45,6 +45,8 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 python train.py \
+    --model $model \
+    --backbone 'cnn' \
     --output_dir $output_dir \
     --train_dataset_fraction 0.5 \
     --num_workers 4 \

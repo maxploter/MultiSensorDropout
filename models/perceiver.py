@@ -8,6 +8,8 @@ from einops.layers.torch import Reduce
 from torch import Tensor
 from torch import nn, einsum
 
+from models.backbone import build_backbone
+
 
 def exists(val):
     return val is not None
@@ -378,13 +380,13 @@ class ObjectDetectionHead(nn.Module):
 
 def build_model_perceiver(args, num_classes):
 
-    backbone = nn.Identity()
+    backbone = build_backbone(args)
 
     num_freq_bands = args.num_freq_bands
     fourier_channels = 2 * ((num_freq_bands * 2) + 1)
 
     num_queries = args.num_objects
-    num_channels = 1 # no backbone, image is gray scale
+    num_channels = backbone.num_channels
 
     perceiver = Perceiver(
         input_channels=num_channels,  # number of channels for each token of the input
