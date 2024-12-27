@@ -30,6 +30,8 @@ def parse_args():
     parser.add_argument('--learning_rate_backbone_names', default=["backbone"], type=str, nargs='+')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--scheduler_step_size', type=int, default=12, help='Scheduler step size')
+    parser.add_argument('--eval_interval', type=int, default=1, help='Eval every interval')
+    parser.add_argument('--patience', type=int, default=5, help='Number of epochs to wait for improvement')
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
     parser.add_argument('--backbone', type=str, help='Backbone type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
@@ -151,6 +153,8 @@ def main(args):
     criterion = build_criterion(args)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step_size, gamma=0.1)
 
+    patience = args.patience
+    current_patience = 0
     start_epoch = 0
     best_val_loss = float('inf')
     # Resume from checkpoint
@@ -164,6 +168,7 @@ def main(args):
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             start_epoch = checkpoint['epoch'] + 1
+            current_patience = checkpoint['current_patience']
             best_val_loss = checkpoint['best_val_loss']
 
     model = model.to(device)
@@ -212,11 +217,12 @@ def main(args):
     for epoch in range(start_epoch, args.epochs):
         train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device)
 
-        test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
         blind_stats = {}
-
-        if dataloader_val_blind:
-            blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
+        test_stats = {}
+        if epoch == 1 or epoch % args.eval_interval == 0:
+            test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
+            if dataloader_val_blind:
+                blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
 
         lr_scheduler.step()
 
@@ -246,10 +252,18 @@ def main(args):
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'epoch': epoch,
+                'current_patience': current_patience,
                 'best_val_loss': best_val_loss
             }, checkpoint_path)
             best_val_loss = val_loss
+            current_patience = 0
             print(f"Checkpoint saved at epoch {epoch} with val loss {val_loss:.4f}")
+        else:
+            current_patience += 1
+
+        if current_patience >= patience:
+            print('Early stopping triggered')
+            break
 
         dataset_train.step_epoch()
         dataset_val.step_epoch()
@@ -280,6 +294,9 @@ def get_wandb_init_config(args):
 
         if args.hidden_dim != 128:
             notes += f',hidden_dim:{args.hidden_dim}'
+
+        if args.eval:
+            notes += f',eval'
 
         result['notes'] = notes
 
