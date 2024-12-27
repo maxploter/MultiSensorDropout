@@ -345,7 +345,7 @@ class MLP(nn.Module):
 
 
 class ObjectDetectionHead(nn.Module):
-    def __init__(self, num_classes, num_latents, latent_dim):
+    def __init__(self, num_classes, latent_dim):
         """ Initializes the model.
         Parameters:
             num_classes: number of object classes
@@ -354,7 +354,6 @@ class ObjectDetectionHead(nn.Module):
             latent_dim: dimension of the latent object query.
         """
         super().__init__()
-        self.num_queries = num_latents
         self.class_embed = nn.Linear(latent_dim, num_classes + 1)
         self.center_points_embed = MLP(latent_dim, latent_dim, 2, 3)
 
@@ -385,7 +384,6 @@ def build_model_perceiver(args, num_classes):
     num_freq_bands = args.num_freq_bands
     fourier_channels = 2 * ((num_freq_bands * 2) + 1)
 
-    num_queries = args.num_objects
     num_channels = backbone.num_channels
 
     perceiver = Perceiver(
@@ -395,7 +393,7 @@ def build_model_perceiver(args, num_classes):
         max_freq=args.max_freq,  # maximum frequency, hyperparameter depending on how fine the data is
         depth=args.enc_layers,  # depth of net. The shape of the final attention mechanism will be:
         #   depth * (cross attention -> self_per_cross_attn * self attention)
-        num_latents=num_queries,
+        num_latents=args.num_queries,
         # number of latents, or induced set points, or centroids. different papers giving it different names
         latent_dim=args.hidden_dim,  # latent dimension
         cross_heads=args.enc_nheads_cross,  # number of heads for cross attention. paper said 1
@@ -415,7 +413,6 @@ def build_model_perceiver(args, num_classes):
 
     classifier_head = ObjectDetectionHead(
         num_classes=num_classes,
-        num_latents=num_queries,
         latent_dim=args.hidden_dim
     )
 

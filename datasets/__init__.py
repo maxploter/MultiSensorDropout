@@ -11,7 +11,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
     dataset_name = args.dataset.lower()
     assert dataset_name.startswith('moving-mnist')
 
-    num_digits = [args.num_objects]
+    num_digits = args.num_objects
 
     split_indices_attr = f"{split}_split_indices"
 
