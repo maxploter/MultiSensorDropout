@@ -7,10 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import wandb
 import yaml
 from torch.utils.data import DataLoader
 
-import wandb
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
@@ -45,7 +45,7 @@ def parse_args():
 
     # Dataset
     parser.add_argument('--dataset', type=str, default='moving-mnist', help='Dataset name')
-    parser.add_argument('--num_objects', type=int, default=2, help='Number of objects')
+    parser.add_argument('--num_objects', nargs='+', type=int, default=[2], help='Number of digits on the frame')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers')
     parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
     parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
@@ -67,6 +67,7 @@ def parse_args():
     parser.add_argument('--max_freq', type=int, default=10, help='Maximum frequency for Fourier encoding')
     parser.add_argument('--enc_layers', type=int, default=1, help='Number of layers in Perceiver encoder')
 
+    parser.add_argument('--num_queries', type=int, default=10, help='Number of latents, or induced set points, or centroids')
     parser.add_argument('--hidden_dim', type=int, default=128, help='Latent dimension size')
     parser.add_argument('--enc_nheads_cross', type=int, default=1, help='Number of cross-attention heads')
     parser.add_argument('--nheads', type=int, default=1, help='Number of latent self-attention heads')
