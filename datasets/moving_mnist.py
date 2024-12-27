@@ -223,6 +223,7 @@ class MovingMNIST(Dataset):
                  normalize=False, # scale images in [0,1] and normalize them with MNIST stats. Applied at batch level. Have to take care of the canvas size that messes up the stats!
                  bounce=False,  # Enable/disable bouncing
                  frame_dropout_pattern = None,
+                 sequences_path = None, #TODO: REMOVE
                  split_indices=None,
                  sampler_steps=[], # epochs at which assign coresponding frame dropout probability
                  frame_dropout_probs=[], # absolut frame drop probability values
@@ -231,13 +232,28 @@ class MovingMNIST(Dataset):
                  ):
         self.bounce = bounce
         self.sequences = None
+        if sequences_path is not None:
+          data = torch.load(sequences_path)
+          self.sequences = list(zip(data['imgs'], data['targets']))
+
+          num_frames = self.sequences[0][0].shape[0]
+          img_size = self.sequences[0][0].shape[2]
+          print(f'Num frames: {num_frames}')
+          print(f'Img size: {img_size}')
 
         self.num_digits = num_digits
+        if self.sequences is None:
+            mnist = MNIST(path, download=True)
+            self.mnist_dataset = mnist.data
+            self.mnist_targets = mnist.targets
 
-        mnist = MNIST(path, download=True)
-        self.mnist_dataset = mnist.data
-        self.mnist_targets = mnist.targets
-        self.affine_params = affine_params
+            if split_indices is not None:
+                split_indices = split_indices[0:int(len(split_indices)*dataset_fraction)]
+                self.mnist_dataset = self.mnist_dataset[split_indices]
+                self.mnist_targets = self.mnist_targets[split_indices]
+            self.ids = [[random.randrange(0, len(self.mnist_dataset)) for _ in range(random.choice(self.num_digits))]
+                        for _ in range(len(self.mnist_dataset))]
+            self.affine_params = affine_params
 
         self.num_frames = num_frames
         self.img_size = img_size
@@ -247,7 +263,6 @@ class MovingMNIST(Dataset):
 
         self.keep_frame_mask = None
         self.frame_dropout_prob = 0.0
-        self.dataset_fraction = dataset_fraction
 
         self.sampler_steps = sampler_steps
         self.frame_dropout_probs = frame_dropout_probs
@@ -282,19 +297,6 @@ class MovingMNIST(Dataset):
             batch_tfms += [T.Normalize(*scaled_mnist_stats)] if normalize else []
         self.batch_tfms = T.Compose(batch_tfms)
 
-        self.initialize_sequences(dataset_fraction, split_indices)
-
-    def initialize_sequences(self, dataset_fraction, split_indices):
-        if split_indices is not None:
-            split_indices = split_indices[0:int(len(split_indices) * dataset_fraction)]
-            self.mnist_dataset = self.mnist_dataset[split_indices]
-            self.mnist_targets = self.mnist_targets[split_indices]
-        self.ids = [[random.randrange(0, len(self.mnist_dataset)) for _ in range(random.choice(self.num_digits))] for _
-                    in range(len(self.mnist_dataset))]
-        self.sequences = []
-        for idx in range(len(self.ids)):
-            images, targets = self.generate_sequence(idx)
-            self.sequences.append((images, targets))
 
     def set_epoch(self, epoch):
         self.current_epoch = epoch
@@ -388,31 +390,38 @@ class MovingMNIST(Dataset):
 
       return combined_digits, targets
 
+
     def __getitem__(self, idx):
-        images, targets = self.sequences[idx]
+      if self.sequences is None:
+          images, targets = self.generate_sequence(idx)
+      else:
+          images, targets = self.sequences[idx]
 
-        targets = copy.deepcopy(targets)  # targets dictionary is mutable
+      targets = copy.deepcopy(targets) # targets dictionary is mutable
 
-        if self.keep_frame_mask is not None:
-            keep_frame_flags = self.keep_frame_mask
-        else:
-            num_potential_drop_frames = self.num_frames // 2
-            frame_keep_probs = torch.rand(num_potential_drop_frames)
-            keep_frame_flags = (frame_keep_probs > self.frame_dropout_prob).int()
-            keep_frame_flags = torch.cat([torch.ones(self.num_frames - num_potential_drop_frames), keep_frame_flags])
+      if self.keep_frame_mask is not None:
+        keep_frame_flags = self.keep_frame_mask
+      else:
+        num_potential_drop_frames = self.num_frames // 2
+        frame_keep_probs = torch.rand(num_potential_drop_frames)
+        keep_frame_flags = (frame_keep_probs > self.frame_dropout_prob).int()
+        keep_frame_flags = torch.cat([torch.ones(self.num_frames - num_potential_drop_frames), keep_frame_flags])
 
-        for frame_number, (img, target) in enumerate(zip(images, targets)):
-            if target['center_points'].size(0) > 0:
-                target['center_points'] /= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
+      for frame_number, (img, target) in enumerate(zip(images, targets)):
+        if target['center_points'].size(0) > 0:
+          target['center_points'] /= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
 
-                target['labels'] = target['labels'].to(torch.int64)
+          target['labels'] = target['labels'].to(torch.int64)
 
-            target['keep_frame'] = keep_frame_flags[frame_number]
-            target['orig_size'] = torch.as_tensor([int(self.img_size), int(self.img_size)])
+        target['keep_frame'] = keep_frame_flags[frame_number]
+        target['orig_size'] = torch.as_tensor([int(self.img_size), int(self.img_size)])
 
-        images = self.batch_tfms(images)
+      images = self.batch_tfms(images)
 
-        return images, targets
+      return images, targets
 
     def __len__(self):
-        return len(self.ids)
+        if self.sequences is None:
+          return len(self.ids)
+        else:
+          return len(self.sequences)

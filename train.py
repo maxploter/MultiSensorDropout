@@ -102,8 +102,8 @@ def main(args):
             open(output_dir / 'config.yaml', 'w'), allow_unicode=True)
 
     # Dataset and dataloaders
-    dataset_train = measure_time(build_dataset, 'train', args)
-    dataset_val = measure_time(build_dataset, 'val', args)
+    dataset_train = build_dataset('train', args)
+    dataset_val = build_dataset('val', args)
 
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     sampler_val = torch.utils.data.SequentialSampler(dataset_val)
@@ -262,14 +262,6 @@ def get_wandb_init_config(args):
 
     return result
 
-
-def measure_time(func, *args, **kwargs):
-    start_time = time.time()
-    result = func(*args, **kwargs)
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"{func.__name__} execution time: {execution_time:.4f} seconds")
-    return result
 
 if __name__ == '__main__':
     args = parse_args()
