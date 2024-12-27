@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
     parser.add_argument('--backbone', type=str, help='Backbone type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    parser.add_argument('--eval', action='store_true')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
@@ -150,19 +151,20 @@ def main(args):
     criterion = build_criterion(args)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step_size, gamma=0.1)
 
+    start_epoch = 0
+    best_val_loss = float('inf')
     # Resume from checkpoint
     if args.resume:
         checkpoint_path = output_dir / args.resume
         print(f'Resuming from {checkpoint_path}')
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-        start_epoch = checkpoint['epoch'] + 1
-        best_val_loss = checkpoint['best_val_loss']
-    else:
-        start_epoch = 0
-        best_val_loss = float('inf')
+
+        if not args.eval:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+            start_epoch = checkpoint['epoch'] + 1
+            best_val_loss = checkpoint['best_val_loss']
 
     model = model.to(device)
 
@@ -185,6 +187,27 @@ def main(args):
 
     if dataset_val_blind:
         dataset_val_blind.set_epoch(start_epoch)
+
+    if args.eval:
+        epoch = 1
+        test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
+        blind_stats = {}
+
+        if dataloader_val_blind:
+            blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
+
+        log_stats = {
+            **{f'test_default_{k}': v for k, v in test_stats.items()},
+            **{f'test_blind_{k}': v for k, v in blind_stats.items()},
+            'epoch': epoch,
+            'n_parameters': n_parameters,
+        }
+
+        if is_main_process():
+            print(json.dumps(log_stats, indent=2))
+            wandb.log(log_stats, step=epoch)
+
+        return
 
     for epoch in range(start_epoch, args.epochs):
         train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device)
