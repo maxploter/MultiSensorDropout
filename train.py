@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers')
     parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
     parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
-    parser.add_argument('--img_size', type=int, default=64, help='Image size')
+    parser.add_argument('--img_size', type=int, default=128, help='Image size')
     parser.add_argument('--bounce', action='store_true', help='Bounce digits against walls')
     parser.add_argument('--overlap_free_initial_position', action='store_true', help='Place digits initially without overlap (as best as we could).')
     parser.add_argument('--frame_dropout_pattern', type=str, required=False, help='Frame dropout pattern')
@@ -98,7 +98,7 @@ def main(args):
 
     # Paths and directories
     output_dir = Path(args.output_dir)
-    if args.output_dir:
+    if args.output_dir and not args.eval:
         output_dir.mkdir(parents=True, exist_ok=True)
         yaml.dump(
             vars(args),
