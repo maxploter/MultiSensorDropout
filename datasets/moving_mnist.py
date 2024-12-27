@@ -243,17 +243,15 @@ class MovingMNIST(Dataset):
 
         self.num_digits = num_digits
         if self.sequences is None:
-            mnist = MNIST(path, download=True)
-            self.mnist_dataset = mnist.data
-            self.mnist_targets = mnist.targets
+          mnist = MNIST(path, download=True)
+          self.mnist_dataset = mnist.data
+          self.mnist_targets = mnist.targets
 
-            if split_indices is not None:
-                split_indices = split_indices[0:int(len(split_indices)*dataset_fraction)]
-                self.mnist_dataset = self.mnist_dataset[split_indices]
-                self.mnist_targets = self.mnist_targets[split_indices]
-            self.ids = [[random.randrange(0, len(self.mnist_dataset)) for _ in range(random.choice(self.num_digits))]
-                        for _ in range(len(self.mnist_dataset))]
-            self.affine_params = affine_params
+          if split_indices is not None:
+            self.mnist_dataset = self.mnist_dataset[split_indices]
+            self.mnist_targets = self.mnist_targets[split_indices]
+          self.ids = [[random.randrange(0, len(self.mnist_dataset)) for _ in range(random.choice(self.num_digits))] for _ in range(len(self.mnist_dataset))]
+          self.affine_params = affine_params
 
         self.num_frames = num_frames
         self.img_size = img_size
@@ -263,6 +261,7 @@ class MovingMNIST(Dataset):
 
         self.keep_frame_mask = None
         self.frame_dropout_prob = 0.0
+        self.dataset_fraction = dataset_fraction
 
         self.sampler_steps = sampler_steps
         self.frame_dropout_probs = frame_dropout_probs
@@ -313,6 +312,9 @@ class MovingMNIST(Dataset):
         # one epoch finishes.
         print("Dataset: epoch {} finishes".format(self.current_epoch))
         self.set_epoch(self.current_epoch + 1)
+
+        if self.dataset_fraction < 1:
+            random.shuffle(self.ids)
 
     def random_place(self, img, initial_translation):
         "Randomly place the digit inside the canvas"
@@ -422,6 +424,6 @@ class MovingMNIST(Dataset):
 
     def __len__(self):
         if self.sequences is None:
-          return len(self.ids)
+          return int(len(self.ids) * self.dataset_fraction)
         else:
           return len(self.sequences)

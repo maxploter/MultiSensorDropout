@@ -30,9 +30,12 @@ def parse_args():
     parser.add_argument('--learning_rate_backbone_names', default=["backbone"], type=str, nargs='+')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--scheduler_step_size', type=int, default=12, help='Scheduler step size')
+    parser.add_argument('--eval_interval', type=int, default=1, help='Eval every interval')
+    parser.add_argument('--patience', type=int, default=5, help='Number of epochs to wait for improvement')
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
     parser.add_argument('--backbone', type=str, help='Backbone type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    parser.add_argument('--eval', action='store_true')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
@@ -46,7 +49,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers')
     parser.add_argument('--train_dataset_fraction', type=float, default=1, help='Train dataset fraction')
     parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
-    parser.add_argument('--img_size', type=int, default=64, help='Image size')
+    parser.add_argument('--img_size', type=int, default=128, help='Image size')
     parser.add_argument('--bounce', action='store_true', help='Bounce digits against walls')
     parser.add_argument('--overlap_free_initial_position', action='store_true', help='Place digits initially without overlap (as best as we could).')
     parser.add_argument('--frame_dropout_pattern', type=str, required=False, help='Frame dropout pattern')
@@ -95,7 +98,7 @@ def main(args):
 
     # Paths and directories
     output_dir = Path(args.output_dir)
-    if args.output_dir:
+    if args.output_dir and not args.eval:
         output_dir.mkdir(parents=True, exist_ok=True)
         yaml.dump(
             vars(args),
@@ -150,19 +153,23 @@ def main(args):
     criterion = build_criterion(args)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step_size, gamma=0.1)
 
+    patience = args.patience
+    current_patience = 0
+    start_epoch = 0
+    best_val_loss = float('inf')
     # Resume from checkpoint
     if args.resume:
         checkpoint_path = output_dir / args.resume
         print(f'Resuming from {checkpoint_path}')
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-        start_epoch = checkpoint['epoch'] + 1
-        best_val_loss = checkpoint['best_val_loss']
-    else:
-        start_epoch = 0
-        best_val_loss = float('inf')
+
+        if not args.eval:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+            start_epoch = checkpoint['epoch'] + 1
+            current_patience = checkpoint['current_patience']
+            best_val_loss = checkpoint['best_val_loss']
 
     model = model.to(device)
 
@@ -186,14 +193,36 @@ def main(args):
     if dataset_val_blind:
         dataset_val_blind.set_epoch(start_epoch)
 
-    for epoch in range(start_epoch, args.epochs):
-        train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device)
-
+    if args.eval:
+        epoch = 1
         test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
         blind_stats = {}
 
         if dataloader_val_blind:
             blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
+
+        log_stats = {
+            **{f'test_default_{k}': v for k, v in test_stats.items()},
+            **{f'test_blind_{k}': v for k, v in blind_stats.items()},
+            'epoch': epoch,
+            'n_parameters': n_parameters,
+        }
+
+        if is_main_process():
+            print(json.dumps(log_stats, indent=2))
+            wandb.log(log_stats, step=epoch)
+
+        return
+
+    for epoch in range(start_epoch, args.epochs):
+        train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device)
+
+        blind_stats = {}
+        test_stats = {}
+        if epoch == 1 or epoch % args.eval_interval == 0:
+            test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
+            if dataloader_val_blind:
+                blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
 
         lr_scheduler.step()
 
@@ -223,10 +252,18 @@ def main(args):
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'epoch': epoch,
+                'current_patience': current_patience,
                 'best_val_loss': best_val_loss
             }, checkpoint_path)
             best_val_loss = val_loss
+            current_patience = 0
             print(f"Checkpoint saved at epoch {epoch} with val loss {val_loss:.4f}")
+        else:
+            current_patience += 1
+
+        if current_patience >= patience:
+            print('Early stopping triggered')
+            break
 
         dataset_train.step_epoch()
         dataset_val.step_epoch()
@@ -257,6 +294,9 @@ def get_wandb_init_config(args):
 
         if args.hidden_dim != 128:
             notes += f',hidden_dim:{args.hidden_dim}'
+
+        if args.eval:
+            notes += f',eval'
 
         result['notes'] = notes
 
