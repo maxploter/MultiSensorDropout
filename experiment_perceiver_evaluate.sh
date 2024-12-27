@@ -24,8 +24,8 @@
 ##SBATCH --gres=gpu:a100-80g:1
 ##SBATCH --cpus-per-task=16
 
-#module load miniconda3
-#conda activate sensor_dropout
+module load miniconda3
+conda activate sensor_dropout
 
 # Blind experiment. Drop frames during training.
 
