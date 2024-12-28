@@ -261,6 +261,8 @@ def main(args):
             print(f"Checkpoint saved at epoch {epoch} with val loss {val_loss:.4f}")
         else:
             current_patience += 1
+            print(f'Current patience: {current_patience}')
+
 
         if current_patience >= patience:
             print('Early stopping triggered')
