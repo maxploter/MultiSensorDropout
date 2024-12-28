@@ -1,6 +1,3 @@
-from models.perceiver import build_model_perceiver, PerceiverDetection
-import torch
-from torch import nn
 import torch
 from torch import nn
 
@@ -34,14 +31,14 @@ class PerceiverAr(nn.Module):
         targets = targets[0] # We have an assumption that batch size is 1
 
         for timestamp, batch in enumerate(src):
-            keep_frame = targets[timestamp]['keep_frame'].item()
+            keep_frame = targets[timestamp]['keep_frame'].bool().item()
 
             if not keep_frame:
                 # drop the frame
                 batch = torch.zeros_like(batch)
 
             out, targets_resp, features, memory, hs = self.detection_model.forward(
-                samples=batch, targets=None, latents=hs
+                samples=batch, targets=None, latents=hs, keep_encoder=keep_frame,
             )
 
             result['pred_logits'].extend(out['pred_logits'])

@@ -235,12 +235,13 @@ class Perceiver(nn.Module):
             data,  # b ()
             latents=None,  # (b, num_latents, latent_dim)
             mask=None,
-            return_embeddings=False
+            return_embeddings=False,
+            keep_cross_attention=True,
     ):
         b, *axis, _, device, dtype = *data.shape, data.device, data.dtype
         assert len(axis) == self.input_axis, 'input data must have the right number of axis'
 
-        if self.fourier_encode_data:
+        if self.fourier_encode_data and keep_cross_attention:
             # calculate fourier encoded positions in the range of [-1, 1], for all axis
 
             axis_pos = list(map(lambda size: torch.linspace(-1., 1., steps=size, device=device, dtype=dtype), axis))
@@ -263,21 +264,23 @@ class Perceiver(nn.Module):
         # layers
 
         for cross_attn, cross_ff, self_attns in self.layers:
-            x_cross = cross_attn(x, context=data, mask=mask)
 
-            if mask is not None:
-                # Check which rows (batch-wise) have all elements equal to 1 (fully masked)
-                # mask_all_ones will be a [batch_size] tensor of True/False
-                mask_all_ones = mask.view(mask.size(0), -1).all(dim=1)
+            if keep_cross_attention:
+                x_cross = cross_attn(x, context=data, mask=mask)
 
-                mask_all_ones = mask_all_ones.view(-1, 1, 1)
+                if mask is not None:
+                    # Check which rows (batch-wise) have all elements equal to 1 (fully masked)
+                    # mask_all_ones will be a [batch_size] tensor of True/False
+                    mask_all_ones = mask.view(mask.size(0), -1).all(dim=1)
 
-                # Zero out the corresponding rows in tgt2
-                x_cross = x_cross.masked_fill(mask_all_ones, float(0))
+                    mask_all_ones = mask_all_ones.view(-1, 1, 1)
 
-            x = x_cross + x
+                    # Zero out the corresponding rows in tgt2
+                    x_cross = x_cross.masked_fill(mask_all_ones, float(0))
 
-            x = cross_ff(x) + x
+                x = x_cross + x
+
+                x = cross_ff(x) + x
 
             for self_attn, self_ff in self_attns:
                 x = self_attn(x) + x
@@ -305,15 +308,18 @@ class PerceiverDetection(nn.Module):
         self.hidden_dim = perceiver.latents.shape[1]
         self.overflow_boxes = False
 
-    def forward(self, samples, targets: list = None, latents: Tensor = None):
+    def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True):
 
-        src = self.backbone(samples)
-        src = src.permute(0, 2, 3, 1)
+        if keep_encoder:
+            samples = self.backbone(samples)
+
+        src = samples.permute(0, 2, 3, 1)
 
         hs = self.perceiver(
             data=src,
             return_embeddings=True,
-            latents=latents
+            latents=latents,
+            keep_cross_attention=keep_encoder,
         )
         out = self.classification_head(hs)
 
