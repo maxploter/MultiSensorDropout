@@ -9,7 +9,7 @@ class SimpleCenterNetWithLSTM(nn.Module):
     def __init__(self, num_objects=5, num_classes=10, lstm_hidden_size=64, img_size=128):
         super(SimpleCenterNetWithLSTM, self).__init__()
         self.num_objects = num_objects
-        self.num_classes = num_classes
+        self.num_classes = num_classes + 1 # Account for background class
         self.lstm_hidden_size = lstm_hidden_size
         self.img_size = img_size
 
@@ -32,8 +32,8 @@ class SimpleCenterNetWithLSTM(nn.Module):
         self.fc_temporal = nn.Linear(lstm_hidden_size, 128)
 
         # Output layers for center points and class scores
-        self.fc_center = nn.Linear(128, 2 * num_objects)  # Predicts (x, y) for each object
-        self.fc_class = nn.Linear(128, num_objects * num_classes)  # Predicts class scores for each object
+        self.fc_center = nn.Linear(128, 2 * self.num_objects)  # Predicts (x, y) for each object
+        self.fc_class = nn.Linear(128, self.num_objects * self.num_classes)  # Predicts class scores for each object
 
     def forward(self, samples, targets):
 
@@ -76,10 +76,10 @@ class SimpleCenterNetWithLSTM(nn.Module):
             center_output = self.fc_center(x).view(-1, self.num_objects, 2)
             class_output = self.fc_class(x).view(-1, self.num_objects, self.num_classes)
 
-            out_logits.append(class_output)
+            out_logits.append(class_output) # [BQC]
             out_center_points.append(center_output)
 
         return {
-            'pred_logits': torch.stack(out_logits, dim=1),
-            'pred_center_points': torch.stack(out_center_points, dim=1)
+            'pred_logits': torch.cat(out_logits), #TQC
+            'pred_center_points': torch.cat(out_center_points) #TQ2
         }, targets
