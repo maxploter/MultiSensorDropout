@@ -41,12 +41,12 @@ class PerceiverAr(nn.Module):
                 samples=batch, targets=None, latents=hs, keep_encoder=keep_frame,
             )
 
-            result['pred_logits'].extend(out['pred_logits'])
+            result['pred_logits'].extend(out['pred_logits']) # [QC]
             result['pred_center_points'].extend(out['pred_center_points'])
 
         return {
-            'pred_logits': torch.stack(result['pred_logits']),
-            'pred_center_points': torch.stack(result['pred_center_points'])
+            'pred_logits': torch.stack(result['pred_logits']), #TQC
+            'pred_center_points': torch.stack(result['pred_center_points']) #TQ2
         }, targets
 
 
