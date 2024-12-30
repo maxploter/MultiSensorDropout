@@ -29,7 +29,7 @@ class SimpleCenterNetWithLSTM(nn.Module):
         self.hidden_c0 = nn.Parameter(torch.randn(1, 1, self.lstm_hidden_size))
 
         # Output layers after LSTM
-        self.fc_temporal = nn.Linear(lstm_hidden_size, 128)
+        self.fc_temporal = nn.Linear(lstm_hidden_size*32*32, 128)
 
         # Output layers for center points and class scores
         self.fc_center = nn.Linear(128, 2 * self.num_objects)  # Predicts (x, y) for each object
@@ -69,8 +69,7 @@ class SimpleCenterNetWithLSTM(nn.Module):
         for t in range(lstm_out.size(1)):
 
             x = lstm_out[:, t]  # BCHW
-            x = F.adaptive_avg_pool2d(x, (1, 1))  # BCHW -> BC11
-            x = x.view(x.size(0), -1)  # Flatten to BC
+            x = x.view(x.size(0), -1) # BC*H*W
 
             x = F.relu(self.fc_temporal(x))
             center_output = self.fc_center(x).view(-1, self.num_objects, 2)
