@@ -6,9 +6,8 @@ from models.conv_lstm import ConvLSTM
 
 
 class SimpleCenterNetWithLSTM(nn.Module):
-    def __init__(self, num_objects=5, num_classes=10, lstm_hidden_size=64, img_size=128):
+    def __init__(self, num_classes=10, lstm_hidden_size=64, img_size=128):
         super(SimpleCenterNetWithLSTM, self).__init__()
-        self.num_objects = num_objects
         self.num_classes = num_classes + 1 # Account for background class
         self.lstm_hidden_size = lstm_hidden_size
         self.img_size = img_size
@@ -16,20 +15,18 @@ class SimpleCenterNetWithLSTM(nn.Module):
         self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1)
-        self.conv5 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)
 
         # ConvLSTM layer
         self.convlstm = ConvLSTM(
-            input_dim=256,
+            input_dim=64,
             hidden_dim=lstm_hidden_size,
             kernel_size=(3,3),
             num_layers=1
         )
 
         # Output layers for center points and class scores
-        self.fc_center = nn.Linear(128, 2)  # Predicts (x, y) for each object
-        self.fc_class = nn.Linear(128, self.num_classes)  # Predicts class scores for each object
+        self.fc_center = nn.Linear(lstm_hidden_size, 2)  # Predicts (x, y) for each object
+        self.fc_class = nn.Linear(lstm_hidden_size, self.num_classes)  # Predicts class scores for each object
 
     def forward(self, samples, targets):
 
@@ -51,10 +48,8 @@ class SimpleCenterNetWithLSTM(nn.Module):
                 x = F.relu(self.conv1(batch))
                 x = F.relu(self.conv2(x))
                 x = F.relu(self.conv3(x))
-                x = F.relu(self.conv4(x))
-                x = F.relu(self.conv5(x))
             else:
-                x = torch.zeros(1, 256, self.img_size//16, self.img_size//16).to(samples.device)
+                x = torch.zeros(1, 64, self.img_size//4, self.img_size//4).to(samples.device)
 
             temporal_features.append(x)
 
