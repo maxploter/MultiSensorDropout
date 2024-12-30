@@ -51,6 +51,8 @@ done
 python train.py \
     --model $model \
     --output_dir $output_dir \
+    --learning_rate 1e-4 \
+    --eval_interval 4 \
     --train_dataset_fraction 0.5 \
     --num_workers 4 \
     --lstm_hidden_size $lstm_hidden_size \
