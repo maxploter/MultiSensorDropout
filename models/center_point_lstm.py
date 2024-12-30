@@ -16,24 +16,20 @@ class SimpleCenterNetWithLSTM(nn.Module):
         self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
+        self.conv4 = nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1)
+        self.conv5 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)
 
         # ConvLSTM layer
         self.convlstm = ConvLSTM(
-            input_dim=64,
+            input_dim=256,
             hidden_dim=lstm_hidden_size,
             kernel_size=(3,3),
             num_layers=1
         )
 
-        self.hidden_h0 = nn.Parameter(torch.randn(1, 1, self.lstm_hidden_size))
-        self.hidden_c0 = nn.Parameter(torch.randn(1, 1, self.lstm_hidden_size))
-
-        # Output layers after LSTM
-        self.fc_temporal = nn.Linear(lstm_hidden_size*32*32, 128)
-
         # Output layers for center points and class scores
-        self.fc_center = nn.Linear(128, 2 * self.num_objects)  # Predicts (x, y) for each object
-        self.fc_class = nn.Linear(128, self.num_objects * self.num_classes)  # Predicts class scores for each object
+        self.fc_center = nn.Linear(128, 2)  # Predicts (x, y) for each object
+        self.fc_class = nn.Linear(128, self.num_classes)  # Predicts class scores for each object
 
     def forward(self, samples, targets):
 
@@ -55,8 +51,10 @@ class SimpleCenterNetWithLSTM(nn.Module):
                 x = F.relu(self.conv1(batch))
                 x = F.relu(self.conv2(x))
                 x = F.relu(self.conv3(x))
+                x = F.relu(self.conv4(x))
+                x = F.relu(self.conv5(x))
             else:
-                x = torch.zeros(1, 64, self.img_size//4, self.img_size//4).to(samples.device)
+                x = torch.zeros(1, 256, self.img_size//16, self.img_size//16).to(samples.device)
 
             temporal_features.append(x)
 
@@ -67,13 +65,14 @@ class SimpleCenterNetWithLSTM(nn.Module):
         lstm_out = lstm_out_list[0]  # BTCHW
 
         for t in range(lstm_out.size(1)):
-
             x = lstm_out[:, t]  # BCHW
-            x = x.view(x.size(0), -1) # BC*H*W
 
-            x = F.relu(self.fc_temporal(x))
-            center_output = self.fc_center(x).view(-1, self.num_objects, 2)
-            class_output = self.fc_class(x).view(-1, self.num_objects, self.num_classes)
+            B, C, H, W = x.shape
+            x = x.view(B, C, H * W)  # B,C,H*W
+            x = x.permute(0, 2, 1)  # B,H*W,C
+
+            class_output = self.fc_class(x)  # B,H*W,num_classes
+            center_output = torch.sigmoid(self.fc_center(x))  # B,H*W,2
 
             out_logits.append(class_output) # [BQC]
             out_center_points.append(center_output)
