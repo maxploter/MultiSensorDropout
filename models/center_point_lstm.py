@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.conv_lstm import ConvLSTM
-
 
 class SimpleCenterNetWithLSTM(nn.Module):
     def __init__(self, num_classes=10, lstm_hidden_size=64, img_size=128):
@@ -17,12 +15,13 @@ class SimpleCenterNetWithLSTM(nn.Module):
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
 
         # ConvLSTM layer
-        self.convlstm = ConvLSTM(
-            input_dim=64,
-            hidden_dim=lstm_hidden_size,
-            kernel_size=(3,3),
-            num_layers=1
-        )
+        # self.convlstm = ConvLSTM(
+        #     input_dim=64,
+        #     hidden_dim=lstm_hidden_size,
+        #     kernel_size=(3,3),
+        #     num_layers=1
+        # )
+        self.fc_temporal = nn.Linear(64, lstm_hidden_size)  # Predicts (x, y) for each object
 
         # Output layers for center points and class scores
         self.fc_center = nn.Linear(lstm_hidden_size, 2)  # Predicts (x, y) for each object
@@ -55,9 +54,11 @@ class SimpleCenterNetWithLSTM(nn.Module):
 
         # Stack temporal features
         temporal_features = torch.stack(temporal_features, dim=0)  # TBCHW
-        lstm_out_list, _ = self.convlstm(temporal_features) # List of layers outputs
+        #lstm_out_list, _ = self.convlstm(temporal_features) # List of layers outputs
 
-        lstm_out = lstm_out_list[0]  # BTCHW
+        # lstm_out = lstm_out_list[0]  # BTCHW
+        lstm_out = temporal_features  # BTCHW
+
 
         for t in range(lstm_out.size(1)):
             x = lstm_out[:, t]  # BCHW
@@ -65,6 +66,8 @@ class SimpleCenterNetWithLSTM(nn.Module):
             B, C, H, W = x.shape
             x = x.view(B, C, H * W)  # B,C,H*W
             x = x.permute(0, 2, 1)  # B,H*W,C
+
+            lstm_out = F.relu(self.fc_temporal(x))
 
             class_output = self.fc_class(x)  # B,H*W,num_classes
             center_output = torch.sigmoid(self.fc_center(x))  # B,H*W,2
