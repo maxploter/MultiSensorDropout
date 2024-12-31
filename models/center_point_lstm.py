@@ -67,7 +67,7 @@ class SimpleCenterNetWithLSTM(nn.Module):
             x = x.view(B, C, H * W)  # B,C,H*W
             x = x.permute(0, 2, 1)  # B,H*W,C
 
-            lstm_out = F.relu(self.fc_temporal(x))
+            x = F.relu(self.fc_temporal(x))
 
             class_output = self.fc_class(x)  # B,H*W,num_classes
             center_output = torch.sigmoid(self.fc_center(x))  # B,H*W,2
