@@ -36,6 +36,7 @@ output_dir="not_tracked_dir/output_${model}_${timestamp}"
 num_objects=2
 lstm_hidden_size=64
 img_size=128
+learning_rate=1e-3
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -43,6 +44,7 @@ while [[ "$#" -gt 0 ]]; do
     --num_objects) num_objects="$2"; shift ;;
     --lstm_hidden_size) lstm_hidden_size="$2"; shift ;;
     --img_size) img_size="$2"; shift ;;
+    --learning_rate) learning_rate="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -51,7 +53,7 @@ done
 python train.py \
     --model $model \
     --output_dir $output_dir \
-    --learning_rate 1e-4 \
+    --learning_rate $learning_rate \
     --eval_interval 4 \
     --train_dataset_fraction 0.5 \
     --num_workers 4 \
