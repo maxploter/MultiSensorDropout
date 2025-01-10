@@ -34,12 +34,14 @@ timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
 
 num_objects=2
+self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --num_objects) num_objects="$2"; shift ;;
+    --self_per_cross_attn) self_per_cross_attn="$2"; shift ;;
     --hidden_dim) hidden_dim="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
@@ -56,4 +58,5 @@ python train.py \
     --sampler_steps \
     --frame_dropout_probs \
     --num_objects $num_objects \
+    --self_per_cross_attn $self_per_cross_attn \
     --img_size 128

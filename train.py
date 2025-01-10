@@ -7,10 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import wandb
 import yaml
 from torch.utils.data import DataLoader
 
+import wandb
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
@@ -300,6 +300,9 @@ def get_wandb_init_config(args):
 
         if args.eval:
             notes += f',eval'
+
+        if args.self_per_cross_attn > 1:
+            notes += f',self_per_cross_attn:{args.self_per_cross_attn}'
 
         result['notes'] = notes
 
