@@ -146,7 +146,7 @@ def build_criterion(args):
         focal_alpha=0.25,
         focal_gamma=2,
         weight_dict={
-            'loss_ce': 2,
+            'loss_ce': 1,
             'loss_center_point': 5
         },
         focal_loss=args.focal_loss
