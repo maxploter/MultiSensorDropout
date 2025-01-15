@@ -10,8 +10,8 @@ class HungarianMatcher(nn.Module):
     predictions, while the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self, cost_class: float = 1, cost_center_point: float = 1,
-                 focal_alpha: float = 0.25, focal_gamma: float = 2.0):
+    def __init__(self, focal_loss, cost_class: float = 1, cost_center_point: float = 1,
+                 focal_alpha: float = 0.25, focal_gamma: float = 2.0,):
         """Creates the matcher
 
         Params:
@@ -28,6 +28,7 @@ class HungarianMatcher(nn.Module):
 
         self.focal_alpha = focal_alpha
         self.focal_gamma = focal_gamma
+        self.focal_loss = focal_loss
 
         assert cost_class != 0 or cost_center_point != 0, "all costs cant be 0"
 
@@ -46,7 +47,10 @@ class HungarianMatcher(nn.Module):
         # We flatten to compute the cost matrices in a batch
         #
         # [batch_size * num_queries, num_classes]
-        out_prob = outputs["pred_logits"].flatten(0, 1).sigmoid()
+        if self.focal_loss:
+            out_prob = outputs["pred_logits"].flatten(0, 1).sigmoid()
+        else:
+            out_prob = outputs["pred_logits"].flatten(0, 1).softmax(-1)  # [batch_size * num_queries, num_classes]
 
         # [batch_size * num_queries, 2]
         out_center_points = outputs["pred_center_points"].flatten(0, 1)
@@ -56,14 +60,20 @@ class HungarianMatcher(nn.Module):
 
         tgt_center_points = torch.cat([v["center_points"] for v in targets])
 
-        # Compute the classification cost.
-        neg_cost_class = (1 - self.focal_alpha) * (out_prob ** self.focal_gamma) * (-(1 - out_prob + 1e-8).log())
-        pos_cost_class = self.focal_alpha * ((1 - out_prob) ** self.focal_gamma) * (-(out_prob + 1e-8).log())
+        if self.focal_loss:
+            # Compute the classification cost.
+            neg_cost_class = (1 - self.focal_alpha) * (out_prob ** self.focal_gamma) * (-(1 - out_prob + 1e-8).log())
+            pos_cost_class = self.focal_alpha * ((1 - out_prob) ** self.focal_gamma) * (-(out_prob + 1e-8).log())
 
-        # tgt_ids - concatenated GT label ids
-        # Per each query we contains logits per all labes
-        # [batch_size * num_queries, batch_size]
-        cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
+            # tgt_ids - concatenated GT label ids
+            # Per each query we contains logits per all labes
+            # [batch_size * num_queries, batch_size]
+            cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
+        else:
+            # Compute the classification cost. Contrary to the loss, we don't use the NLL,
+            # but approximate it in 1 - proba[target class].
+            # The 1 is a constant that doesn't change the matching, it can be ommitted.
+            cost_class = -out_prob[:, tgt_ids]
 
         # Compute the L1 cost between center points
         cost_center_points = torch.cdist(out_center_points, tgt_center_points, p=1)
@@ -89,8 +99,9 @@ class HungarianMatcher(nn.Module):
                 for i, j in indices]
 
 
-def build_matcher():
+def build_matcher(args):
     return HungarianMatcher(
+        focal_loss=args.focal_loss,
         cost_class = 2,
         cost_center_point = 5,
     )

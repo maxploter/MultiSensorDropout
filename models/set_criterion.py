@@ -7,7 +7,7 @@ from util.misc import sigmoid_focal_loss, accuracy
 
 
 class SetCriterion(nn.Module):
-    def __init__(self, num_classes, matcher, focal_alpha, focal_gamma, weight_dict):
+    def __init__(self, num_classes, matcher, focal_alpha, focal_gamma, weight_dict, focal_loss):
         super(SetCriterion, self).__init__()
         self.num_classes = num_classes
         self.coord_criterion = nn.MSELoss(reduction='sum')
@@ -16,6 +16,32 @@ class SetCriterion(nn.Module):
         self.focal_alpha = focal_alpha
         self.focal_gamma = focal_gamma
         self.weight_dict = weight_dict
+        self.focal_loss = focal_loss
+
+        empty_weight = torch.ones(self.num_classes + 1)
+        empty_weight[-1] = 0.1 # self.eos_coef
+        self.register_buffer('empty_weight', empty_weight)
+
+    def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
+        """Classification loss (NLL)
+        targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
+        """
+        assert 'pred_logits' in outputs
+        src_logits = outputs['pred_logits']
+
+        idx = self._get_src_permutation_idx(indices)
+        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+                                    dtype=torch.int64, device=src_logits.device)
+        target_classes[idx] = target_classes_o
+
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        losses = {'loss_ce': loss_ce}
+
+        if log:
+            # TODO this should probably be a separate loss, not hacked in this one here
+            losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
+        return losses
 
     def loss_labels_focal(self, outputs, targets, indices, num_objects, log=True):
         """Classification loss (NLL)
@@ -85,7 +111,11 @@ class SetCriterion(nn.Module):
             [num_objects], dtype=torch.float, device=next(iter(outputs.values())).device)
 
         losses = {}
-        loss_labels = self.loss_labels_focal(outputs, targets, indecies, num_objects)
+
+        if self.focal_loss:
+            loss_labels = self.loss_labels_focal(outputs, targets, indecies, num_objects)
+        else:
+            loss_labels = self.loss_labels(outputs, targets, indecies, num_objects)
         loss_center_points = self.loss_center_points(outputs, targets, indecies, num_objects)
 
         losses.update(loss_labels)
@@ -109,7 +139,7 @@ def build_criterion(args):
     assert 'moving-mnist' in args.dataset.lower()
     num_classes = 10
 
-    matcher = build_matcher()
+    matcher = build_matcher(args)
     return SetCriterion(
         num_classes,
         matcher,
@@ -118,5 +148,6 @@ def build_criterion(args):
         weight_dict={
             'loss_ce': 2,
             'loss_center_point': 5
-        }
+        },
+        focal_loss=args.focal_loss
     )
