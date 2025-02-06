@@ -10,7 +10,9 @@ import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
 from torchvision.datasets import MNIST
 
-mnist_stats    = ([0.131], [0.308])
+mnist_stats    = {
+    (1,2,3,4,5,6,7,8,9,10): ([0.0321], [0.1631]) # mean, std
+}
 
 def padding(img_size=64, mnist_size=28): return (img_size - mnist_size) // 2
 
@@ -289,11 +291,9 @@ class MovingMNIST(Dataset):
         # some computation to ensure normalizing correctly-ish
         batch_tfms = [T.ConvertImageDtype(torch.float32)]
         if normalize:
-            ratio = (28/img_size)**2*max(num_digits)
-            mean, std = mnist_stats
-            scaled_mnist_stats = ([mean[0]*ratio], [std[0]*ratio])
-            print(f"New computed stats for MovingMNIST: {scaled_mnist_stats}")
-            batch_tfms += [T.Normalize(*scaled_mnist_stats)] if normalize else []
+            mean, std = mnist_stats[tuple(num_digits)]
+            print(f"New computed stats for MovingMNIST: {(mean, std)}")
+            batch_tfms += [T.Normalize(mean=mean, std=std)] if normalize else []
         self.batch_tfms = T.Compose(batch_tfms)
 
 
