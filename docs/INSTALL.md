@@ -3,7 +3,7 @@
 
 ```
 conda env create -f environment.yml
-conda activate sensor_dropout
+conda activate multi_sensor_dropout
 ```
 
 Install pytorch

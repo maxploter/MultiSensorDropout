@@ -1,4 +1,4 @@
-name: sensor_dropout
+name: multi_sensor_dropout
 channels:
   - defaults
 dependencies:
