@@ -291,7 +291,8 @@ class MovingMNIST(Dataset):
         # some computation to ensure normalizing correctly-ish
         batch_tfms = [T.ConvertImageDtype(torch.float32)]
         if normalize:
-            mean, std = mnist_stats[tuple(num_digits)]
+            # Default value on dataset with variable number of digits
+            mean, std = mnist_stats.get(tuple(num_digits), ([0.0321], [0.1631]))
             print(f"New computed stats for MovingMNIST: {(mean, std)}")
             batch_tfms += [T.Normalize(mean=mean, std=std)] if normalize else []
         self.batch_tfms = T.Compose(batch_tfms)
