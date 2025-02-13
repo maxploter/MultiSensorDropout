@@ -2,7 +2,7 @@ import torch.nn as nn
 
 
 class BackboneCnn(nn.Module):
-    def __init__(self):
+    def __init__(self, input_image_view_size):
         super(BackboneCnn, self).__init__()
 
         self.block1 = nn.Sequential(
@@ -15,6 +15,12 @@ class BackboneCnn(nn.Module):
         )
 
         self.num_channels = 32
+        h, w = input_image_view_size
+        self.output_size = self._output_size(h, w)
+
+    # Keep get_output_size for cases where we need to calculate size later
+    def _output_size(self, input_h, input_w):
+        return input_h // 2, input_w // 2
 
     def forward(self, x):
         x = self.block1(x)
@@ -29,8 +35,6 @@ class BackboneIdentity(nn.Module):
     def forward(self, x):
         return x
 
-def build_backbone(args):
-    if args.backbone == 'cnn':
-        return BackboneCnn()
-    else:
-        return BackboneIdentity()
+def build_backbone(args, input_image_view_size):
+    backbone = BackboneCnn(input_image_view_size) if args.backbone == 'cnn' else BackboneIdentity()
+    return backbone

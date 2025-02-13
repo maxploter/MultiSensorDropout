@@ -50,14 +50,14 @@ class PerceiverAr(nn.Module):
         }, targets
 
 
-def build_perceiver_ar_model(args, num_classes):
-    backbone, perceiver, classification_head = build_model_perceiver(args, num_classes=num_classes)
+def build_perceiver_ar_model(args, num_classes, input_image_view_size):
+    backbone, perceiver, classification_head = build_model_perceiver(args, num_classes=num_classes, input_image_view_size=input_image_view_size)
 
     detection_model = PerceiverDetection(
-        backbone, perceiver, classification_head
+        backbone, perceiver, classification_head, grid_size = args.grid_size
     )
     model = PerceiverAr(
-        detection_model = detection_model
+        detection_model = detection_model,
     )
 
     return model
