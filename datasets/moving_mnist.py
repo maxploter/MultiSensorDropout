@@ -215,6 +215,43 @@ def translate_digits_overlap_free(canvas_width, canvas_height, num_objects, digi
     return placed_position_translations
 
 
+def split_frame_into_tiles(frame, grid_size, overlap_ratio=0.0):
+    """Split a frame into tiles based on grid size with optional overlap
+
+    Args:
+        frame: Tensor of shape (C, H, W)
+        grid_size: Tuple of (rows, cols) for the grid
+        overlap_ratio: Float between 0 and 1 indicating how much tiles should overlap
+
+    Returns:
+        List of tiles, each tile is a tensor of shape (C, tile_h, tile_w)
+    """
+    _, H, W = frame.shape
+    rows, cols = grid_size
+
+    # Calculate tile dimensions
+    tile_h = H // rows
+    tile_w = W // cols
+
+    # Calculate overlap in pixels
+    overlap_h = int(tile_h * overlap_ratio)
+    overlap_w = int(tile_w * overlap_ratio)
+
+    tiles = []
+    for i in range(rows):
+        for j in range(cols):
+            # Calculate tile boundaries with overlap
+            start_h = max(0, i * tile_h - overlap_h)
+            end_h = min(H, (i + 1) * tile_h + overlap_h)
+            start_w = max(0, j * tile_w - overlap_w)
+            end_w = min(W, (j + 1) * tile_w + overlap_w)
+
+            tile = frame[:, start_h:end_h, start_w:end_w]
+            tiles.append(tile)
+
+    return tiles
+
+
 class MovingMNIST(Dataset):
     def __init__(self, path=".",  # path to store the MNIST dataset
                  affine_params: dict=affine_params, # affine transform parameters, refer to torchvision.transforms.functional.affine
@@ -231,6 +268,8 @@ class MovingMNIST(Dataset):
                  frame_dropout_probs=[], # absolut frame drop probability values
                  dataset_fraction = 1,
                  overlap_free_initial_translation=False, # Initial digits translation in overlap free way
+                 grid_size=(1,1),  # New parameter: tuple of (rows, cols) or None for no tiling
+                 tile_overlap=0.0,  # New parameter: overlap ratio between tiles
                  ):
         self.bounce = bounce
         self.sequences = None
@@ -297,6 +336,8 @@ class MovingMNIST(Dataset):
             batch_tfms += [T.Normalize(mean=mean, std=std)] if normalize else []
         self.batch_tfms = T.Compose(batch_tfms)
 
+        self.grid_size = grid_size
+        self.tile_overlap = tile_overlap
 
     def set_epoch(self, epoch):
         self.current_epoch = epoch
@@ -421,7 +462,16 @@ class MovingMNIST(Dataset):
 
       images = self.batch_tfms(images)
 
-      return images, targets
+      tiled_frames = []
+      for frame in images:
+        tiles = split_frame_into_tiles(frame, self.grid_size, self.tile_overlap)
+        # Stack tiles for this frame into shape (num_tiles, C, tile_h, tile_w)
+        tiled_frames.append(torch.stack(tiles))
+
+      # Stack all frames to shape (num_frames, num_tiles, C, tile_h, tile_w)
+      tiled_images = torch.stack(tiled_frames)
+
+      return tiled_images, targets
 
     def __len__(self):
         if self.sequences is None:

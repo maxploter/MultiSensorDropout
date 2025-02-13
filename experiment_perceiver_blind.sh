@@ -34,11 +34,17 @@ timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
 
 num_objects=2
+grid_size="1 1"
+tile_overlap=0.0
+train_dataset_fraction=0.5
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --num_objects) num_objects="$2"; shift ;;  # Parse --num_objects and its value
+    --grid_size) grid_size="$2"; shift ;;
+    --tile_overlap) tile_overlap="$2"; shift ;;
+    --train_dataset_fraction) train_dataset_fraction="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -48,8 +54,10 @@ python train.py \
     --model $model \
     --backbone 'cnn' \
     --output_dir $output_dir \
-    --train_dataset_fraction 0.5 \
+    --train_dataset_fraction $train_dataset_fraction \
     --num_workers 4 \
     --frame_dropout_pattern '00001111' \
     --num_objects $num_objects \
-    --img_size 128
+    --img_size 128 \
+    --grid_size $grid_size \
+    --tile_overlap $tile_overlap

@@ -58,9 +58,13 @@ def parse_args():
                         default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
     parser.add_argument('--sampler_steps', nargs='*', type=int,
                         default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], help='Sampler steps')
+    parser.add_argument('--grid_size', type=int, nargs=2, default=(1,1),
+                        help='Grid size for splitting frames into tiles (rows, cols)')
+    parser.add_argument('--tile_overlap', type=float, default=0.0,
+                        help='Overlap ratio between tiles (0.0 to 1.0)')
 
     # wandb
-    parser.add_argument('--wandb_project', type=str, default='sensor-dropout', help='Wandb project')
+    parser.add_argument('--wandb_project', type=str, default='multi-sensor-dropout', help='Wandb project')
     parser.add_argument('--wandb_id', type=str, default=None, help='Wandb ID resume training')
 
     # Perceiver model specific arguments

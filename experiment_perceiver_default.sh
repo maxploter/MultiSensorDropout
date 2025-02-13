@@ -37,6 +37,9 @@ num_objects=2
 self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
 learning_rate=1e-3
+grid_size="1 1"
+tile_overlap=0.0
+train_dataset_fraction=0.5
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -45,6 +48,9 @@ while [[ "$#" -gt 0 ]]; do
     --self_per_cross_attn) self_per_cross_attn="$2"; shift ;;
     --hidden_dim) hidden_dim="$2"; shift ;;
     --learning_rate) learning_rate="$2"; shift ;;
+    --grid_size) grid_size="$2"; shift ;;
+    --tile_overlap) tile_overlap="$2"; shift ;;
+    --train_dataset_fraction) train_dataset_fraction="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -55,11 +61,13 @@ python train.py \
     --backbone 'cnn' \
     --learning_rate $learning_rate \
     --output_dir $output_dir \
-    --train_dataset_fraction 0.5 \
+    --train_dataset_fraction $train_dataset_fraction \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
     --sampler_steps \
     --frame_dropout_probs \
     --num_objects $num_objects \
     --self_per_cross_attn $self_per_cross_attn \
-    --img_size 128
+    --img_size 128 \
+    --grid_size $grid_size \
+    --tile_overlap $tile_overlap
