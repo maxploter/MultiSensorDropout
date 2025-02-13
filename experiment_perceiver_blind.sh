@@ -37,6 +37,7 @@ num_objects=2
 grid_size="1 1"
 tile_overlap=0.0
 train_dataset_fraction=0.5
+num_queries=256
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -45,6 +46,7 @@ while [[ "$#" -gt 0 ]]; do
     --grid_size) grid_size="$2"; shift ;;
     --tile_overlap) tile_overlap="$2"; shift ;;
     --train_dataset_fraction) train_dataset_fraction="$2"; shift ;;
+    --num_queries) num_queries="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -60,4 +62,5 @@ python train.py \
     --num_objects $num_objects \
     --img_size 128 \
     --grid_size $grid_size \
-    --tile_overlap $tile_overlap
+    --tile_overlap $tile_overlap \
+    --num_queries $num_queries
