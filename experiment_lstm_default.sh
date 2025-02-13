@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
 #SBATCH -A bolt
-#SBATCH --job-name="bolt-sensor-dropout-train-lstm"
+#SBATCH --job-name="bolt-multi-sensor-dropout-train-lstm"
 #SBATCH --time=5:00:00
 #SBATCH --partition=gpu
 #SBATCH --output=not_tracked_dir/slurm/%j_slurm_%x.out
