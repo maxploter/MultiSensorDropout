@@ -402,6 +402,8 @@ def build_model_perceiver(args, num_classes):
     cross_heads = gh * gw # Number of tiles is equal to the number of cross heads
     # TODO: args.enc_nheads_cross
 
+    num_channels = num_channels * gh * gw
+
     perceiver = Perceiver(
         input_channels=num_channels,  # number of channels for each token of the input
         input_axis=2,  # number of axis for input data (2 for images, 3 for video)
