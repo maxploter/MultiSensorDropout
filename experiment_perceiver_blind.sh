@@ -25,7 +25,7 @@
 ##SBATCH --cpus-per-task=16
 
 module load miniconda3
-conda activate sensor_dropout
+conda activate multi_sensor_dropout
 
 # Blind experiment. Drop frames during training.
 
