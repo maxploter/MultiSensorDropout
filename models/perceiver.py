@@ -434,7 +434,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         latent_dim=args.hidden_dim,  # latent dimension
         cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
         latent_heads=args.nheads,  # number of heads for latent self attention, 8
-        cross_dim_head=num_channels // args.enc_nheads_cross,
+        cross_dim_head=backbone.num_channels,
         # number of dimensions per cross attention head
         latent_dim_head=args.hidden_dim // args.nheads,  # number of dimensions per latent self attention head
         num_classes=-1,  # NOT USED. output number of classes.
