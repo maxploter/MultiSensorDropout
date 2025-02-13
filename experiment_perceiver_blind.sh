@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
 #SBATCH -A bolt
-#SBATCH --job-name="bolt-sensor-dropout-train-perceiver"
+#SBATCH --job-name="bolt-multi-sensor-dropout-train-perceiver"
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu
 #SBATCH --output=not_tracked_dir/slurm/%j_slurm_%x.out
