@@ -37,6 +37,7 @@ resume=""
 num_objects="2"
 grid_size="1 1"
 tile_overlap=0.0
+num_queries=256
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -46,6 +47,7 @@ while [[ "$#" -gt 0 ]]; do
     --resume) resume="$2"; shift ;;
     --grid_size) grid_size="$2"; shift ;;
     --tile_overlap) tile_overlap="$2"; shift ;;
+    --num_queries) num_queries="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -65,6 +67,7 @@ for num in "${num_objects[@]}"; do
     --frame_dropout_pattern '00001111' \
     --num_objects $num \
     --grid_size $grid_size \
-    --tile_overlap $tile_overlap
+    --tile_overlap $tile_overlap \
+    --num_queries $num_queries
 done
 
