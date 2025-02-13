@@ -13,11 +13,11 @@ class PerceiverAr(nn.Module):
         self.detection_model = detection_model
 
     def forward(self, samples, targets: list = None):
-        if len(samples.shape) < 5:
+        if len(samples.shape) < 6:
             # samples without a time dimension
             raise NotImplementedError("Not implemented yet samples without a time dimension.")
 
-        src = samples.permute(1, 0, 2, 3, 4)  # change dimension order from BT___ to TB___
+        src = samples.permute(1, 0, 2, 3, 4, 5)  # change dimension order from BT___ to TB___
 
         device = None
         result = {'pred_logits': [], 'pred_center_points': []}

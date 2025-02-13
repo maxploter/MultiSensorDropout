@@ -35,6 +35,8 @@ output_dir=""
 resume=""
 
 num_objects="2"
+grid_size="1 1"
+tile_overlap=0.0
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -42,6 +44,8 @@ while [[ "$#" -gt 0 ]]; do
     --num_objects) num_objects="$2"; shift ;;
     --output_dir) output_dir="$2"; shift ;;
     --resume) resume="$2"; shift ;;
+    --grid_size) grid_size="$2"; shift ;;
+    --tile_overlap) tile_overlap="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -59,6 +63,8 @@ for num in "${num_objects[@]}"; do
     --resume $resume \
     --num_workers 4 \
     --frame_dropout_pattern '00001111' \
-    --num_objects $num
+    --num_objects $num \
+    --grid_size $grid_size \
+    --tile_overlap $tile_overlap
 done
 

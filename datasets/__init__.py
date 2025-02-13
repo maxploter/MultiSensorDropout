@@ -58,6 +58,8 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             affine_params=affine_params,
             dataset_fraction=args.train_dataset_fraction,
             overlap_free_initial_translation=args.overlap_free_initial_position,
+            grid_size=args.grid_size,
+            tile_overlap=args.tile_overlap,
         )
     elif split == 'val':
         dataset = MovingMNIST(
@@ -70,6 +72,8 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             frame_dropout_pattern=frame_dropout_pattern,
             affine_params=affine_params,
             overlap_free_initial_translation=args.overlap_free_initial_position,
+            grid_size=args.grid_size,
+            tile_overlap=args.tile_overlap,
         )
     else:
         raise ValueError(f'unknown {split}')

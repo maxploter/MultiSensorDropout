@@ -309,11 +309,16 @@ class PerceiverDetection(nn.Module):
         self.overflow_boxes = False
 
     def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True):
+        B, N , *_ = samples.shape
+
+        samples = rearrange(samples, "b n c h w -> (b n) c h w")
 
         if keep_encoder:
             samples = self.backbone(samples)
 
-        src = samples.permute(0, 2, 3, 1)
+        # TODO learnable positional embeddings
+
+        src = rearrange(samples, "(b n) c h w -> b h w (n c)", b=B) # order of n c is important
 
         hs = self.perceiver(
             data=src,
@@ -392,6 +397,11 @@ def build_model_perceiver(args, num_classes):
 
     num_channels = backbone.num_channels
 
+    gh, gw = args.grid_size
+
+    cross_heads = gh * gw # Number of tiles is equal to the number of cross heads
+    # TODO: args.enc_nheads_cross
+
     perceiver = Perceiver(
         input_channels=num_channels,  # number of channels for each token of the input
         input_axis=2,  # number of axis for input data (2 for images, 3 for video)
@@ -402,7 +412,7 @@ def build_model_perceiver(args, num_classes):
         num_latents=args.num_queries,
         # number of latents, or induced set points, or centroids. different papers giving it different names
         latent_dim=args.hidden_dim,  # latent dimension
-        cross_heads=args.enc_nheads_cross,  # number of heads for cross attention. paper said 1
+        cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
         latent_heads=args.nheads,  # number of heads for latent self attention, 8
         cross_dim_head=(num_channels + fourier_channels) // args.enc_nheads_cross,
         # number of dimensions per cross attention head
