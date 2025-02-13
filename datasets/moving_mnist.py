@@ -229,22 +229,23 @@ def split_frame_into_tiles(frame, grid_size, overlap_ratio=0.0):
     _, H, W = frame.shape
     rows, cols = grid_size
 
-    # Calculate tile dimensions
-    tile_h = H // rows
-    tile_w = W // cols
-
-    # Calculate overlap in pixels
-    overlap_h = int(tile_h * overlap_ratio)
-    overlap_w = int(tile_w * overlap_ratio)
+    # Calculate tile dimensions with overlap factor
+    overlap = 1 + overlap_ratio  # e.g., 1.2 for 20% overlap
+    tile_h = int((H // rows) * overlap)
+    tile_w = int((W // cols) * overlap)
 
     tiles = []
     for i in range(rows):
         for j in range(cols):
-            # Calculate tile boundaries with overlap
-            start_h = max(0, i * tile_h - overlap_h)
-            end_h = min(H, (i + 1) * tile_h + overlap_h)
-            start_w = max(0, j * tile_w - overlap_w)
-            end_w = min(W, (j + 1) * tile_w + overlap_w)
+            # Calculate tile center
+            center_h = i * (H // rows) + (H // rows) // 2
+            center_w = j * (W // cols) + (W // cols) // 2
+            
+            # Calculate tile boundaries around center
+            start_h = max(0, center_h - tile_h // 2)
+            end_h = min(H, center_h + tile_h // 2)
+            start_w = max(0, center_w - tile_w // 2)
+            end_w = min(W, center_w + tile_w // 2)
 
             tile = frame[:, start_h:end_h, start_w:end_w]
             tiles.append(tile)
@@ -338,6 +339,14 @@ class MovingMNIST(Dataset):
 
         self.grid_size = grid_size
         self.tile_overlap = tile_overlap
+        
+        # Calculate input image view size
+        rows, cols = self.grid_size
+        overlap = 1 + tile_overlap  # e.g., 1.2 for 20% overlap
+        self.input_image_view_size = (
+            int((self.img_size // rows) * overlap),
+            int((self.img_size // cols) * overlap)
+        )
 
     def set_epoch(self, epoch):
         self.current_epoch = epoch

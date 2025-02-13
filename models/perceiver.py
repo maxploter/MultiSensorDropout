@@ -298,7 +298,7 @@ class Perceiver(nn.Module):
 
 class PerceiverDetection(nn.Module):
 
-    def __init__(self, backbone, perceiver, classification_head):
+    def __init__(self, backbone, perceiver, classification_head, grid_size):
         super().__init__()
         self.backbone = backbone
         self.perceiver = perceiver
@@ -307,6 +307,16 @@ class PerceiverDetection(nn.Module):
         self.num_queries = perceiver.latents.shape[0]
         self.hidden_dim = perceiver.latents.shape[1]
         self.overflow_boxes = False
+        
+        # Position embeddings for spatial locations within each view
+        # This should match the backbone's output spatial dimensions
+        feat_h, feat_w = backbone.output_size  # Need to add this to backbone
+        self.pos_embed = nn.Parameter(torch.zeros(1, feat_h, feat_w, backbone.num_channels))
+        nn.init.normal_(self.pos_embed, std=0.02)
+        
+        n = grid_size[0]*grid_size[0]
+        self.grid_embed = nn.Parameter(torch.zeros(1, n, 1, 1, backbone.num_channels))
+        nn.init.normal_(self.grid_embed, std=0.02)
 
     def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True):
         B, N , *_ = samples.shape
@@ -314,11 +324,19 @@ class PerceiverDetection(nn.Module):
         samples = rearrange(samples, "b n c h w -> (b n) c h w")
 
         if keep_encoder:
-            samples = self.backbone(samples)
-
-        # TODO learnable positional embeddings
-
-        src = rearrange(samples, "(b n) c h w -> b h w (n c)", b=B) # order of n c is important
+            features = self.backbone(samples)
+            
+            # Add spatial position embeddings to each view
+            features = rearrange(features, "(b n) c h w -> b n h w c", b=B)
+            features = features + self.pos_embed
+            
+            # Add grid embeddings to distinguish between views
+            features = features + self.grid_embed
+            
+            # Final rearrangement for perceiver
+            src = rearrange(features, "b n h w c -> b h w (n c)")
+        else:
+            src = samples
 
         hs = self.perceiver(
             data=src,
@@ -388,9 +406,9 @@ class ObjectDetectionHead(nn.Module):
         return out
 
 
-def build_model_perceiver(args, num_classes):
+def build_model_perceiver(args, num_classes, input_image_view_size):
 
-    backbone = build_backbone(args)
+    backbone = build_backbone(args, input_image_view_size=input_image_view_size)
 
     num_freq_bands = args.num_freq_bands
     fourier_channels = 2 * ((num_freq_bands * 2) + 1)
@@ -416,14 +434,14 @@ def build_model_perceiver(args, num_classes):
         latent_dim=args.hidden_dim,  # latent dimension
         cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
         latent_heads=args.nheads,  # number of heads for latent self attention, 8
-        cross_dim_head=(num_channels + fourier_channels) // args.enc_nheads_cross,
+        cross_dim_head=num_channels // args.enc_nheads_cross,
         # number of dimensions per cross attention head
         latent_dim_head=args.hidden_dim // args.nheads,  # number of dimensions per latent self attention head
         num_classes=-1,  # NOT USED. output number of classes.
         attn_dropout=args.dropout,
         ff_dropout=args.dropout,
         weight_tie_layers=False,  # whether to weight tie layers (optional, as indicated in the diagram)
-        fourier_encode_data=True,
+        fourier_encode_data=False,
         # whether to auto-fourier encode the data, using the input_axis given. defaults to True, but can be turned off if you are fourier encoding the data yourself
         self_per_cross_attn=args.self_per_cross_attn,  # number of self attention blocks per cross attention
         final_classifier_head=False  # mean pool and project embeddings to number of classes (num_classes) at the end

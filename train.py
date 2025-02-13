@@ -131,7 +131,7 @@ def main(args):
                                           collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
 
     # Model, criterion, optimizer, and scheduler
-    model = build_model(args)
+    model = build_model(args, dataset_train.input_image_view_size)
     postprocessors = {'trajectory': PostProcessTrajectory()}
 
     def match_name_keywords(n, name_keywords):
