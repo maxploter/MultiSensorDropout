@@ -37,6 +37,7 @@ num_objects=2
 self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
 learning_rate=1e-3
+learning_rate_backbone=1e-4
 grid_size="1 1"
 tile_overlap=0.0
 train_dataset_fraction=0.5
@@ -49,6 +50,7 @@ while [[ "$#" -gt 0 ]]; do
     --self_per_cross_attn) self_per_cross_attn="$2"; shift ;;
     --hidden_dim) hidden_dim="$2"; shift ;;
     --learning_rate) learning_rate="$2"; shift ;;
+    --learning_rate_backbone) learning_rate_backbone="$2"; shift ;;
     --grid_size) grid_size="$2"; shift ;;
     --tile_overlap) tile_overlap="$2"; shift ;;
     --train_dataset_fraction) train_dataset_fraction="$2"; shift ;;
@@ -62,6 +64,7 @@ python train.py \
     --model $model \
     --backbone 'cnn' \
     --learning_rate $learning_rate \
+    --learning_rate_backbone $learning_rate_backbone \
     --output_dir $output_dir \
     --train_dataset_fraction $train_dataset_fraction \
     --num_workers 4 \
