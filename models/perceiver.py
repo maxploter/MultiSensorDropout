@@ -297,42 +297,39 @@ class Perceiver(nn.Module):
 
 
 class PerceiverDetection(nn.Module):
-
-    def __init__(self, backbone, perceiver, classification_head, grid_size):
+    def __init__(self, backbones, perceiver, classification_head, grid_size):
         super().__init__()
-        self.backbone = backbone
+        self.backbones = backbones
         self.perceiver = perceiver
         self.classification_head = classification_head
         # Compatibility with TrackingBaseModel
         self.num_queries = perceiver.latents.shape[0]
         self.hidden_dim = perceiver.latents.shape[1]
         self.overflow_boxes = False
-        
-        # Position embeddings for spatial locations within each view
-        # This should match the backbone's output spatial dimensions
-        feat_h, feat_w = backbone.output_size  # Need to add this to backbone
-        self.pos_embed = nn.Parameter(torch.zeros(1, feat_h, feat_w, backbone.num_channels))
+
+        # Keep only spatial position embeddings
+        feat_h, feat_w = self.backbones[0].output_size
+        self.pos_embed = nn.Parameter(torch.zeros(1, feat_h, feat_w, backbones[0].num_channels))
         nn.init.normal_(self.pos_embed, std=0.02)
-        
-        n = grid_size[0]*grid_size[0]
-        self.grid_embed = nn.Parameter(torch.zeros(1, n, 1, 1, backbone.num_channels))
-        nn.init.normal_(self.grid_embed, std=0.02)
 
     def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True):
-        B, N , *_ = samples.shape
-
-        samples = rearrange(samples, "b n c h w -> (b n) c h w")
+        B, N, *_ = samples.shape
 
         if keep_encoder:
-            features = self.backbone(samples)
-            
+            # Process each view with its dedicated backbone
+            features = []
+            for view_idx in range(N):
+                view_samples = samples[:, view_idx]  # [B, C, H, W]
+                view_features = self.backbones[view_idx](view_samples)  # [B, C, h, w]
+                features.append(view_features)
+
+            # Stack features from all views
+            features = torch.stack(features, dim=1)  # [B, N, C, h, w]
+
             # Add spatial position embeddings to each view
-            features = rearrange(features, "(b n) c h w -> b n h w c", b=B)
+            features = rearrange(features, "b n c h w -> b n h w c")
             features = features + self.pos_embed
-            
-            # Add grid embeddings to distinguish between views
-            features = features + self.grid_embed
-            
+
             # Final rearrangement for perceiver
             src = rearrange(features, "b n h w c -> b h w (n c)")
         else:
@@ -408,19 +405,23 @@ class ObjectDetectionHead(nn.Module):
 
 def build_model_perceiver(args, num_classes, input_image_view_size):
 
-    backbone = build_backbone(args, input_image_view_size=input_image_view_size)
+    gh, gw = args.grid_size
+
+    number_of_views = gh * gw
+
+    backbones = nn.ModuleList([build_backbone(args, input_image_view_size=input_image_view_size) for _ in range(number_of_views)])
 
     num_freq_bands = args.num_freq_bands
     fourier_channels = 2 * ((num_freq_bands * 2) + 1)
 
-    num_channels = backbone.num_channels
+    num_channels_from_backbone = backbones[0].num_channels
 
     gh, gw = args.grid_size
 
     cross_heads = gh * gw # Number of tiles is equal to the number of cross heads
     # TODO: args.enc_nheads_cross
 
-    num_channels = num_channels * gh * gw
+    num_channels = num_channels_from_backbone * gh * gw
 
     perceiver = Perceiver(
         input_channels=num_channels,  # number of channels for each token of the input
@@ -434,7 +435,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         latent_dim=args.hidden_dim,  # latent dimension
         cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
         latent_heads=args.nheads,  # number of heads for latent self attention, 8
-        cross_dim_head=backbone.num_channels,
+        cross_dim_head=num_channels_from_backbone,
         # number of dimensions per cross attention head
         latent_dim_head=args.hidden_dim // args.nheads,  # number of dimensions per latent self attention head
         num_classes=-1,  # NOT USED. output number of classes.
@@ -452,4 +453,4 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         latent_dim=args.hidden_dim
     )
 
-    return backbone, perceiver, classifier_head
+    return backbones, perceiver, classifier_head
