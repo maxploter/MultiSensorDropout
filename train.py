@@ -78,6 +78,7 @@ def parse_args():
     parser.add_argument('--nheads', type=int, default=1, help='Number of latent self-attention heads')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout rate')
     parser.add_argument('--self_per_cross_attn', type=int, default=1, help='Number of self-attention blocks per cross-attention block')
+    parser.add_argument('--multi_classification_heads', action='store_true')
 
     # LSTM model specific arguments
     parser.add_argument('--lstm_hidden_size', type=int, default=128, help='Hidden size of LSTM')
@@ -305,6 +306,9 @@ def get_wandb_init_config(args):
 
         if args.eval:
             notes += f',eval'
+
+        if args.multi_classification_heads:
+            notes += f',multi_classification_heads'
 
         if args.focal_loss:
             notes += f',focal_loss'
