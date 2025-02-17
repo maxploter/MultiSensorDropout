@@ -192,7 +192,7 @@ def build_criterion(args):
         weight_dict={
             'loss_ce': 1,
             'loss_bce': 1,
-            'loss_center_point': 5
+            'loss_center_point': args.weight_loss_center_point
         },
         focal_loss=args.focal_loss,
         multi_classification_heads=getattr(args, 'multi_classification_heads', False)
