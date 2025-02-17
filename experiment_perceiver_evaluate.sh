@@ -38,6 +38,7 @@ num_objects="2"
 grid_size="1 1"
 tile_overlap=0.0
 num_queries=256
+weight_loss_center_point=5
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -48,6 +49,7 @@ while [[ "$#" -gt 0 ]]; do
     --grid_size) grid_size="$2"; shift ;;
     --tile_overlap) tile_overlap="$2"; shift ;;
     --num_queries) num_queries="$2"; shift ;;
+    --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -69,6 +71,7 @@ for num in "${num_objects[@]}"; do
     --grid_size $grid_size \
     --tile_overlap $tile_overlap \
     --num_queries $num_queries \
-    --multi_classification_heads
+    --multi_classification_heads \
+    --weight_loss_center_point $weight_loss_center_point
 done
 

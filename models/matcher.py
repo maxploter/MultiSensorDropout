@@ -73,7 +73,7 @@ class HungarianMatcher(nn.Module):
             else:
                 tgt_mask = [[label is not None for label in t["labels"]] for t in targets] # dummy mask to get all GTs
                 tgt_ids = torch.cat([v["labels"] for v in targets])
-                tgt_center_points = torch.cat([v["center_points"] for v in targets])
+                tgt_center_points = torch.cat([v["center_points"] for v in targets], device=out_center_points.device)
 
             if tgt_center_points.numel() == 0:
                 # result_indices[head_id] = (torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64))
