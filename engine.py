@@ -54,7 +54,9 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
 
         # Update metric logger with main loss and each component
         metric_logger['loss'].update(loss_value)
-        metric_logger["class_error"].update(loss_dict['class_error'].item())
+
+        if 'class_error' in loss_dict:
+            metric_logger["class_error"].update(loss_dict['class_error'].item())
 
         for k, v in loss_dict_unscaled.items():
             metric_logger[k].update(v.item())
@@ -117,7 +119,8 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
             loss_value = losses_scaled.item()
 
             metric_logger['loss'].update(loss_value)
-            metric_logger['class_error'].update(loss_dict['class_error'].item())
+            if 'class_error' in loss_dict:
+                metric_logger['class_error'].update(loss_dict['class_error'].item())
 
             for k, v in loss_dict_unscaled.items():
               metric_logger[k].update(v.item())

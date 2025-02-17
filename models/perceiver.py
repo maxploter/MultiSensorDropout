@@ -297,11 +297,11 @@ class Perceiver(nn.Module):
 
 
 class PerceiverDetection(nn.Module):
-    def __init__(self, backbones, perceiver, classification_head, grid_size):
+    def __init__(self, backbones, perceiver, classification_heads, grid_size):
         super().__init__()
         self.backbones = backbones
         self.perceiver = perceiver
-        self.classification_head = classification_head
+        self.classification_heads = classification_heads
         # Compatibility with TrackingBaseModel
         self.num_queries = perceiver.latents.shape[0]
         self.hidden_dim = perceiver.latents.shape[1]
@@ -341,10 +341,13 @@ class PerceiverDetection(nn.Module):
             latents=latents,
             keep_cross_attention=keep_encoder,
         )
-        out = self.classification_head(hs)
+
+        out = {}
+        for i, head in enumerate(self.classification_heads):
+            out[head.detection_object_id] = head(hs)
 
         # TODO: double check if normilization should be disabled
-        out['hs_embed'] = hs
+        # out['hs_embed'] = hs
 
         return (
             out,
@@ -382,6 +385,7 @@ class ObjectDetectionHead(nn.Module):
         super().__init__()
         self.class_embed = nn.Linear(latent_dim, num_classes + 1)
         self.center_points_embed = MLP(latent_dim, latent_dim, 2, 3)
+        self.detection_object_id = 'mnist_digits'
 
     def forward(self, hs: Tensor):
         """Forward pass of the ObjectDetectionHead.
@@ -401,6 +405,21 @@ class ObjectDetectionHead(nn.Module):
         outputs_coord = self.center_points_embed(hs).sigmoid()
         out = {'pred_logits': outputs_class, 'pred_center_points': outputs_coord}
         return out
+
+class DigitHead(nn.Module):
+    """Single head for a specific digit (binary classification + center regression)"""
+    def __init__(self, latent_dim, detection_object_id):
+        super().__init__()
+        self.class_embed = nn.Linear(latent_dim, 1)  # Binary logit
+        self.center_embed = MLP(latent_dim, latent_dim, 2, 3)  # Center prediction
+        self.detection_object_id = detection_object_id
+
+    def forward(self, hs):
+        # hs: [B, Q, latent_dim]
+        outputs_class = self.class_embed(hs).squeeze(-1)
+        outputs_center_points = self.center_embed(hs).sigmoid()
+
+        return {'pred_logits': outputs_class, 'pred_center_points': outputs_center_points}
 
 
 def build_model_perceiver(args, num_classes, input_image_view_size):
@@ -448,9 +467,18 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         final_classifier_head=False  # mean pool and project embeddings to number of classes (num_classes) at the end
     )
 
-    classifier_head = ObjectDetectionHead(
-        num_classes=num_classes,
-        latent_dim=args.hidden_dim
-    )
+    if hasattr(args, 'multi_classification_heads') and args.multi_classification_heads:
+        # create a dedicated classification head per each digit
+        classification_heads = nn.ModuleList([])
+        for i in range(10):
+            classification_heads.append(DigitHead(
+                latent_dim=args.hidden_dim,
+                detection_object_id=f'{i}'
+            ))
+    else:
+        classification_heads = nn.ModuleList([ObjectDetectionHead(
+            num_classes=num_classes,
+            latent_dim=args.hidden_dim
+        )])
 
-    return backbones, perceiver, classifier_head
+    return backbones, perceiver, classification_heads

@@ -20,7 +20,7 @@ class PerceiverAr(nn.Module):
         src = samples.permute(1, 0, 2, 3, 4, 5)  # change dimension order from BT___ to TB___
 
         device = None
-        result = {'pred_logits': [], 'pred_center_points': []}
+        result = {}
 
         orig_size = torch.stack([t[-1]["orig_size"] for t in targets], dim=0).to(device)
 
@@ -41,20 +41,25 @@ class PerceiverAr(nn.Module):
                 samples=batch, targets=None, latents=hs, keep_encoder=keep_frame,
             )
 
-            result['pred_logits'].extend(out['pred_logits']) # [QC]
-            result['pred_center_points'].extend(out['pred_center_points'])
+            for detection_obbject_id, out_predictions in out.items():
+                if detection_obbject_id not in result:
+                    result[detection_obbject_id] = {'pred_logits': [], 'pred_center_points': []}
 
-        return {
-            'pred_logits': torch.stack(result['pred_logits']), #TQC
-            'pred_center_points': torch.stack(result['pred_center_points']) #TQ2
-        }, targets
+                result[detection_obbject_id]['pred_logits'].extend(out_predictions['pred_logits']) # [QC]
+                result[detection_obbject_id]['pred_center_points'].extend(out_predictions['pred_center_points'])
+
+        for _, pred in result.items():
+            pred['pred_logits'] = torch.stack(pred['pred_logits'])
+            pred['pred_center_points'] = torch.stack(pred['pred_center_points'])
+
+        return result, targets
 
 
 def build_perceiver_ar_model(args, num_classes, input_image_view_size):
-    backbone, perceiver, classification_head = build_model_perceiver(args, num_classes=num_classes, input_image_view_size=input_image_view_size)
+    backbones, perceiver, classification_heads = build_model_perceiver(args, num_classes=num_classes, input_image_view_size=input_image_view_size)
 
     detection_model = PerceiverDetection(
-        backbone, perceiver, classification_head, grid_size = args.grid_size
+        backbones, perceiver, classification_heads, grid_size = args.grid_size
     )
     model = PerceiverAr(
         detection_model = detection_model,
