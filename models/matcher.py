@@ -64,15 +64,12 @@ class HungarianMatcher(nn.Module):
             # [batch_size * num_queries, 2]
             out_center_points = head_outputs["pred_center_points"].flatten(0, 1)
 
-            # Also concat the target labels and boxes
-            # tgt_mask = [t["labels"] == int(head_id) for t in targets]
-            tgt_ids = None
-
             if number_of_heads > 1:
                 tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
                 tgt_center_points = torch.cat([t["center_points"][mask] for t, mask in zip(targets, tgt_mask)])
                 # tgt_ids of the format if head_id equal to t label then true otherwise false
-                tgt_ids = torch.cat([t for m in tgt_mask for t in m])
+                tgt_ids = torch.cat([v["labels"][msk] for v, msk in zip(targets, tgt_mask)])
+                tgt_ids = torch.zeros_like(tgt_ids)
             else:
                 tgt_mask = [[label is not None for label in t["labels"]] for t in targets] # dummy mask to get all GTs
                 tgt_ids = torch.cat([v["labels"] for v in targets])
@@ -83,18 +80,7 @@ class HungarianMatcher(nn.Module):
                 continue
 
             if number_of_heads > 1:
-                # If multiple heads we assume that head contain binary classification
-                # Compute the classification cost.
-                # cost_class = -out_prob
-
-                N = out_prob.shape[0]
-                M = tgt_ids.shape[0]
-                cost_class = torch.zeros((N, M), dtype=out_prob.dtype, device=out_prob.device)  # Important: Use out_prob's dtype and device
-
-                # Efficiently apply the mask using broadcasting
-                cost_class[:, tgt_ids] = -out_prob.unsqueeze(1)  # Assign out_prob where tgt_ids is True. unsqueeze is important!
-                cost_class[:, ~tgt_ids] = -(1 - out_prob.unsqueeze(1))  # Assign 1-out_prob where mask is False. unsqueeze is important!
-
+                cost_class = -out_prob.unsqueeze(-1)[:, tgt_ids]
             elif self.focal_loss:
                 # Compute the classification cost.
                 neg_cost_class = (1 - self.focal_alpha) * (out_prob ** self.focal_gamma) * (-(1 - out_prob + 1e-8).log())
