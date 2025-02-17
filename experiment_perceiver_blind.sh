@@ -63,4 +63,5 @@ python train.py \
     --img_size 128 \
     --grid_size $grid_size \
     --tile_overlap $tile_overlap \
-    --num_queries $num_queries
+    --num_queries $num_queries \
+    --multi_classification_heads
