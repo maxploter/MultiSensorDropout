@@ -41,6 +41,7 @@ learning_rate_backbone=1e-4
 grid_size="1 1"
 tile_overlap=0.0
 train_dataset_fraction=0.5
+test_dataset_fraction=1.0
 num_queries=256
 weight_loss_center_point=5
 
@@ -55,6 +56,7 @@ while [[ "$#" -gt 0 ]]; do
     --grid_size) grid_size="$2"; shift ;;
     --tile_overlap) tile_overlap="$2"; shift ;;
     --train_dataset_fraction) train_dataset_fraction="$2"; shift ;;
+    --test_dataset_fraction) test_dataset_fraction="$2"; shift ;;
     --num_queries) num_queries="$2"; shift ;;
     --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -69,6 +71,7 @@ python train.py \
     --learning_rate_backbone $learning_rate_backbone \
     --output_dir $output_dir \
     --train_dataset_fraction $train_dataset_fraction \
+    --test_dataset_fraction $test_dataset_fraction \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
     --sampler_steps \
