@@ -87,7 +87,7 @@ class PostProcessTrajectory(nn.Module):
     @torch.no_grad()
     def forward(self, outputs, targets):
         outputs = {
-            k: {k2: v2.detach() for k2, v2 in v.items()} for k, v in outputs.items()
+            k: {k2: v2.detach().cpu() for k2, v2 in v.items()} for k, v in outputs.items()
         }
 
         targets = [{k: v.detach().cpu() for k, v in t.items()} for t in targets]
