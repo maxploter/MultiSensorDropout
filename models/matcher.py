@@ -66,14 +66,21 @@ class HungarianMatcher(nn.Module):
 
             if number_of_heads > 1:
                 tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
-                tgt_center_points = torch.cat([t["center_points"][mask] for t, mask in zip(targets, tgt_mask)])
+                tgt_center_points = torch.cat([
+                    t["center_points"][mask].to(out_center_points.device)
+                    for t, mask in zip(targets, tgt_mask)
+                ])
                 # tgt_ids of the format if head_id equal to t label then true otherwise false
                 tgt_ids = torch.cat([v["labels"][msk] for v, msk in zip(targets, tgt_mask)])
                 tgt_ids = torch.zeros_like(tgt_ids)
             else:
                 tgt_mask = [[label is not None for label in t["labels"]] for t in targets] # dummy mask to get all GTs
                 tgt_ids = torch.cat([v["labels"] for v in targets])
-                tgt_center_points = torch.cat([v["center_points"] for v in targets], device=out_center_points.device)
+
+                tgt_center_points = torch.cat([
+                    v["center_points"].to(out_center_points.device)
+                    for v in targets
+                ])
 
             if tgt_center_points.numel() == 0:
                 # result_indices[head_id] = (torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64))
