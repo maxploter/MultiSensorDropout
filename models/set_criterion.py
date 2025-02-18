@@ -130,22 +130,29 @@ class SetCriterion(nn.Module):
         indices_per_head = self.matcher(outputs, targets)
 
         losses = {}
+
+        num_objects = sum(len(t["labels"]) for t in targets)
+
+        # get first value form the dict outputs
+        head_output = outputs[next(iter(outputs))]
+
+        num_objects = torch.as_tensor(
+            [num_objects], dtype=torch.float, device=next(iter(head_output.values())).device)
+
         for head_id, indices in indices_per_head.items():
             head_output = outputs[head_id]
 
-            if self.multi_classification_heads:
-                num_objects = sum((t["labels"] == int(head_id)).sum().item() for t in targets)
-            else:
-                num_objects = sum(len(t["labels"]) for t in targets)
-
-            num_objects = torch.as_tensor(
-                [num_objects], dtype=torch.float, device=next(iter(head_output.values())).device)
+            num_objects_stub = torch.as_tensor(
+                [1], dtype=torch.float, device=next(iter(head_output.values())).device)
 
             losses[head_id] = {}
             for loss in self.losses:
-                losses[head_id].update(self.get_loss(loss, head_output, targets, indices, num_objects))
+                losses[head_id].update(self.get_loss(loss, head_output, targets, indices, num_objects_stub))
 
         losses = {k: sum(v[k] for v in losses.values() if k in v) for k in set(k for v in losses.values() for k in v.keys())}
+
+        if 'loss_center_point' in losses:
+            losses['loss_center_point'] /= num_objects
 
         return losses
 
