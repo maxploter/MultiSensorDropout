@@ -70,6 +70,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             num_frames=args.num_frames,
             split_indices=split_indices,
             frame_dropout_pattern=frame_dropout_pattern,
+            dataset_fraction=args.test_dataset_fraction,
             affine_params=affine_params,
             overlap_free_initial_translation=args.overlap_free_initial_position,
             grid_size=args.grid_size,
