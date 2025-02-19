@@ -25,9 +25,6 @@ class SetCriterion(nn.Module):
         self.register_buffer('empty_weight', empty_weight)
 
     def loss_binary_labels(self, outputs, targets, indices, num_boxes, log=True):
-        """Binary classification loss (BCE)
-        targets dicts must contain the key "binary_labels" containing a tensor of dim [nb_target_boxes, 2]
-        """
         assert 'pred_logits' in outputs
         src_logits = outputs['pred_logits']
 
@@ -39,8 +36,21 @@ class SetCriterion(nn.Module):
                                     dtype=torch.int64, device=src_logits.device)
         target_classes[idx] = target_classes_o
         target_classes = target_classes.float()  # Convert target_classes to Float
+
+        negative_weight = 0.1
+        positive_weight = 1.0
+
+        # Create a weight tensor. It needs to match the shape of the targets
+        weights = torch.ones_like(target_classes)
+
+        weights[target_classes == 0.0] = negative_weight  # Set weight for negative class (0)
+        weights[target_classes == 1.0] = positive_weight  # Set weight for positive class (1)
+
         loss_bce = F.binary_cross_entropy_with_logits(
-            src_logits, target_classes, pos_weight=torch.tensor([9], device=src_logits.device))
+            src_logits, target_classes,
+            weight=weights,
+            # pos_weight=torch.tensor([9], device=src_logits.device)
+        )
         losses = {'loss_bce': loss_bce}
 
         return losses
@@ -142,12 +152,25 @@ class SetCriterion(nn.Module):
         for head_id, indices in indices_per_head.items():
             head_output = outputs[head_id]
 
+            # get first value from head_output
+            head_output_device = next(iter(head_output.values())).device
+
+            tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
+
+            head_targets = [
+                {
+                    "center_points": t["center_points"][mask].to(head_output_device),
+                    "labels": t["labels"][mask].to(head_output_device),
+                }
+                for t, mask in zip(targets, tgt_mask)
+            ]
+
             num_objects_stub = torch.as_tensor(
                 [1], dtype=torch.float, device=next(iter(head_output.values())).device)
 
             losses[head_id] = {}
             for loss in self.losses:
-                losses[head_id].update(self.get_loss(loss, head_output, targets, indices, num_objects_stub))
+                losses[head_id].update(self.get_loss(loss, head_output, head_targets, indices, num_objects_stub))
 
         losses = {k: sum(v[k] for v in losses.values() if k in v) for k in set(k for v in losses.values() for k in v.keys())}
 
