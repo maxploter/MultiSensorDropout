@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from scipy.optimize import linear_sum_assignment
 
+from util.misc import is_multi_head_fn
+
+
 class HungarianMatcher(nn.Module):
     """This class computes an assignment between the targets and the predictions of the network
 
@@ -40,6 +43,8 @@ class HungarianMatcher(nn.Module):
         # Define variable number_of_heads as the number of heads in the outputs
         number_of_heads = len(outputs)
 
+        is_multi_head = is_multi_head_fn(outputs.keys())
+
         for head_id, head_outputs in outputs.items():
             batch_size, num_queries = head_outputs["pred_logits"].shape[:2]
 
@@ -53,7 +58,7 @@ class HungarianMatcher(nn.Module):
             # We flatten to compute the cost matrices in a batch
             #
             # [batch_size * num_queries, num_classes]
-            if number_of_heads > 1:
+            if is_multi_head:
                 # If multiple heads we assume that head contain binary classification
                 out_prob = head_outputs["pred_logits"].flatten(0, 1).sigmoid()
             elif self.focal_loss:
@@ -64,7 +69,7 @@ class HungarianMatcher(nn.Module):
             # [batch_size * num_queries, 2]
             out_center_points = head_outputs["pred_center_points"].flatten(0, 1)
 
-            if number_of_heads > 1:
+            if is_multi_head:
                 tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
                 tgt_center_points = torch.cat([
                     t["center_points"][mask].to(out_center_points.device)
@@ -86,7 +91,7 @@ class HungarianMatcher(nn.Module):
                 # result_indices[head_id] = (torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64))
                 continue
 
-            if number_of_heads > 1:
+            if is_multi_head:
                 cost_class = -out_prob.unsqueeze(-1)[:, tgt_ids]
             elif self.focal_loss:
                 # Compute the classification cost.

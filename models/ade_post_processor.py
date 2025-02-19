@@ -2,6 +2,9 @@ import numpy as np
 import torch
 from torch import nn
 
+from util.misc import is_multi_head_fn
+
+
 class AverageDisplacementErrorEvaluator:
 
     def __init__(self, matcher, img_size):
@@ -22,16 +25,30 @@ class AverageDisplacementErrorEvaluator:
         """
         # Match predictions to targets
         indices_per_head = self.matcher(outputs, targets)
+        is_multi_head = is_multi_head_fn(outputs.keys())
 
-        for head, indices in indices_per_head.items():
-            head_outputs = outputs[head]
-            
+        for head_id, indices in indices_per_head.items():
+            head_outputs = outputs[head_id]
+
+            if is_multi_head:
+                tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
+
+                head_targets = [
+                    {
+                        "center_points": t["center_points"][mask],
+                        "labels": t["labels"][mask],
+                    }
+                    for t, mask in zip(targets, tgt_mask)
+                ]
+            else:
+                head_targets = targets
+
             # Permute predictions based on matched indices
             idx = self._get_src_permutation_idx(indices)
             src_cps = head_outputs['pred_center_points'][idx] # Predicted center points
             src_cps *= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
 
-            target_cps = torch.cat([t['center_points'][i] for t, (_, i) in zip(targets, indices)], dim=0)  # True center points
+            target_cps = torch.cat([t['center_points'][i] for t, (_, i) in zip(head_targets, indices)], dim=0)  # True center points
             target_cps *= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
 
             displacements = torch.norm(src_cps - target_cps, dim=1).detach().cpu()  # Shape: [N, 1]
