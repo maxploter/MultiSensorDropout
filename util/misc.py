@@ -107,3 +107,6 @@ def get_rank():
 
 def is_main_process():
     return get_rank() == 0
+
+def is_multi_head_fn(keys):
+    return all(k.isdigit() for k in keys)

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from models.matcher import build_matcher
-from util.misc import sigmoid_focal_loss, accuracy
+from util.misc import sigmoid_focal_loss, accuracy, is_multi_head_fn
 
 
 class SetCriterion(nn.Module):
@@ -149,21 +149,26 @@ class SetCriterion(nn.Module):
         num_objects = torch.as_tensor(
             [num_objects], dtype=torch.float, device=next(iter(head_output.values())).device)
 
+        is_multi_head = is_multi_head_fn(outputs.keys())
+
         for head_id, indices in indices_per_head.items():
             head_output = outputs[head_id]
 
             # get first value from head_output
             head_output_device = next(iter(head_output.values())).device
 
-            tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
+            if is_multi_head:
+                tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
 
-            head_targets = [
-                {
-                    "center_points": t["center_points"][mask].to(head_output_device),
-                    "labels": t["labels"][mask].to(head_output_device),
-                }
-                for t, mask in zip(targets, tgt_mask)
-            ]
+                head_targets = [
+                    {
+                        "center_points": t["center_points"][mask].to(head_output_device),
+                        "labels": t["labels"][mask].to(head_output_device),
+                    }
+                    for t, mask in zip(targets, tgt_mask)
+                ]
+            else:
+                head_targets = targets
 
             num_objects_stub = torch.as_tensor(
                 [1], dtype=torch.float, device=next(iter(head_output.values())).device)
