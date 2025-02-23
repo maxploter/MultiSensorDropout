@@ -231,24 +231,35 @@ def split_frame_into_tiles(frame, grid_size, overlap_ratio=0.0):
 
     # Calculate tile dimensions with overlap factor
     overlap = 1 + overlap_ratio  # e.g., 1.2 for 20% overlap
-    tile_h = int((H // rows) * overlap)
     tile_w = int((W // cols) * overlap)
+    tile_h = int((H // rows) * overlap)
 
+    delta_x = (W - tile_w) // (cols - 1)
+    delta_y = (H - tile_h) // (rows - 1)
     tiles = []
+    tile_center_point = None
+
     for i in range(rows):
+        if tile_center_point is None:
+            center_x = tile_w // 2
+            center_y = tile_h // 2
+            tile_center_point = (center_x, center_y)
+        else:
+            center_x = tile_w // 2
+            center_y = tile_center_point[1] + delta_y
+            tile_center_point = (center_x, center_y)
+
         for j in range(cols):
-            # Calculate tile center
-            center_h = i * (H // rows) + (H // rows) // 2
-            center_w = j * (W // cols) + (W // cols) // 2
-            
             # Calculate tile boundaries around center
-            start_h = max(0, center_h - tile_h // 2)
-            end_h = min(H, center_h + tile_h // 2)
-            start_w = max(0, center_w - tile_w // 2)
-            end_w = min(W, center_w + tile_w // 2)
+            start_h = int(tile_center_point[1] - tile_h // 2)
+            end_h = int(start_h + tile_h)
+            start_w = int(tile_center_point[0] - tile_w // 2)
+            end_w = int(start_w + tile_w)
 
             tile = frame[:, start_h:end_h, start_w:end_w]
             tiles.append(tile)
+
+            tile_center_point = (tile_center_point[0] + delta_x, tile_center_point[1])
 
     return tiles
 
