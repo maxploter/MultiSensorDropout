@@ -76,6 +76,7 @@ python train.py \
     --hidden_dim $hidden_dim \
     --sampler_steps \
     --frame_dropout_probs \
+    --view_dropout_probs \
     --num_objects $num_objects \
     --self_per_cross_attn $self_per_cross_attn \
     --img_size 128 \

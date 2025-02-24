@@ -54,6 +54,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             num_frames=args.num_frames,
             split_indices=split_indices,
             frame_dropout_probs=args.frame_dropout_probs,
+            view_dropout_probs=args.view_dropout_probs,
             sampler_steps=args.sampler_steps,
             affine_params=affine_params,
             dataset_fraction=args.train_dataset_fraction,

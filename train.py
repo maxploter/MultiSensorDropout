@@ -58,6 +58,8 @@ def parse_args():
     parser.add_argument('--frame_dropout_pattern', type=str, required=False, help='Frame dropout pattern')
     parser.add_argument('--frame_dropout_probs', nargs='*', type=float,
                         default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
+    parser.add_argument('--view_dropout_probs', nargs='*', type=float,
+                        default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
     parser.add_argument('--sampler_steps', nargs='*', type=int,
                         default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], help='Sampler steps')
     parser.add_argument('--grid_size', type=int, nargs=2, default=(1,1),
@@ -204,6 +206,7 @@ def main(args):
 
     if args.eval:
         epoch = 1
+        # TODO add test dataset
         test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
         blind_stats = {}
 
