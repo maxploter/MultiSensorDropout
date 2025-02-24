@@ -32,13 +32,14 @@ class PerceiverAr(nn.Module):
 
         for timestamp, batch in enumerate(src):
             keep_frame = targets[timestamp]['keep_frame'].bool().item()
+            active_views = targets[timestamp]['active_views'].bool().item()
 
             if not keep_frame:
                 # drop the frame
                 batch = torch.zeros_like(batch)
 
             out, targets_resp, features, memory, hs = self.detection_model.forward(
-                samples=batch, targets=None, latents=hs, keep_encoder=keep_frame,
+                samples=batch, targets=None, latents=hs, keep_encoder=keep_frame, active_views=active_views
             )
 
             for detection_obbject_id, out_predictions in out.items():

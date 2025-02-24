@@ -91,40 +91,98 @@ class Attention(nn.Module):
     def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.):
         super().__init__()
         inner_dim = dim_head * heads
+        self.is_cross_attention = context_dim is not None # Provided with data input dimension
         context_dim = default(context_dim, query_dim)
 
         self.scale = dim_head ** -0.5
         self.heads = heads
+        self.dim_head = dim_head
 
-        self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
-        self.to_kv = nn.Linear(context_dim, inner_dim * 2, bias=False)
+        if self.is_cross_attention:
+            # Separate Q projections per head (for latent queries)
+            self.to_qs = nn.ModuleList([
+                nn.Linear(query_dim, dim_head, bias=False)
+                for _ in range(heads)
+            ])
+
+            # Separate K/V projections per head (for each view)
+            self.to_kvs = nn.ModuleList([
+                nn.Linear(context_dim // heads, 2 * dim_head, bias=False)
+                for _ in range(heads)
+            ])
+        else:
+            # self-attention
+            self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
+            self.to_kv = nn.Linear(context_dim, inner_dim * 2, bias=False)
 
         self.dropout = nn.Dropout(dropout)
         self.to_out = nn.Linear(inner_dim, query_dim)
 
-    def forward(self, x, context=None, mask=None):
+    def forward(self, x, context=None, mask=None, active_heads=None):
+        """
+        Args:
+            x (torch.Tensor): query tensor
+                shape (b, n, d)
+            context (torch.Tensor): input data tensor (feature map)
+                shape (b, m, d), default to None
+            mask (torch.Tensor): mask tensor
+                shape (b, n, m), default to None
+            active_heads (list): list of indices of active heads
+                default to None
+        """
         h = self.heads
+        dh = self.dim_head
 
-        q = self.to_q(x)
         context = default(context, x)
-        k, v = self.to_kv(context).chunk(2, dim=-1)
+        # k, v = self.to_kv(context).chunk(2, dim=-1)
 
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
+        if self.is_cross_attention:
+            context_chunks = context.chunk(h, dim=-1)  # [B, seq_len, (d_view)] * h
+            head_outputs = []
+            for head_idx in range(h):
+                if active_heads is not None and head_idx not in active_heads:
+                    # Zero-initialize output for inactive heads
+                    head_out = torch.zeros(x.shape[0], x.shape[1], dh, device=x.device)
+                    head_outputs.append(head_out)
+                    continue
 
-        sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
+                # Project Q from latents for this head
+                q = self.to_qs[head_idx](x)  # [B, num_latents, dh]
 
-        if exists(mask):
-            mask = rearrange(mask, 'b ... -> b (...)')
-            max_neg_value = -torch.finfo(sim.dtype).max
-            mask = repeat(mask, 'b j -> (b h) () j', h=h)
-            sim.masked_fill_(mask, max_neg_value)  # Fills elements of self tensor with value where mask is True
+                # Project K/V from corresponding view
+                view_context = context_chunks[head_idx]
+                k, v = self.to_kvs[head_idx](view_context).chunk(2, dim=-1)  # [B, seq_len, dh], [B, seq_len, dh]
 
-        # attention, what we cannot get enough of
-        attn = sim.softmax(dim=-1)
-        attn = self.dropout(attn)
+                # Compute attention
+                sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
+                attn = sim.softmax(dim=-1)
+                attn = self.dropout(attn)
 
-        out = einsum('b i j, b j d -> b i d', attn, v)
-        out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
+                head_out = einsum('b i j, b j d -> b i d', attn, v)
+                head_outputs.append(head_out)
+
+            # Concatenate all head outputs (active + zeros for inactive)
+            out = torch.cat(head_outputs, dim=-1)
+        else:
+            q = self.to_q(x)
+            k, v = self.to_kv(context).chunk(2, dim=-1)
+
+            q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
+
+            sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
+
+            if exists(mask):
+                mask = rearrange(mask, 'b ... -> b (...)')
+                max_neg_value = -torch.finfo(sim.dtype).max
+                mask = repeat(mask, 'b j -> (b h) () j', h=h)
+                sim.masked_fill_(mask, max_neg_value)  # Fills elements of self tensor with value where mask is True
+
+            # attention, what we cannot get enough of
+            attn = sim.softmax(dim=-1)
+            attn = self.dropout(attn)
+
+            out = einsum('b i j, b j d -> b i d', attn, v)
+            out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
         return self.to_out(out)
 
 
@@ -237,6 +295,7 @@ class Perceiver(nn.Module):
             mask=None,
             return_embeddings=False,
             keep_cross_attention=True,
+            active_heads=None,
     ):
         b, *axis, _, device, dtype = *data.shape, data.device, data.dtype
         assert len(axis) == self.input_axis, 'input data must have the right number of axis'
@@ -266,7 +325,7 @@ class Perceiver(nn.Module):
         for cross_attn, cross_ff, self_attns in self.layers:
 
             if keep_cross_attention:
-                x_cross = cross_attn(x, context=data, mask=mask)
+                x_cross = cross_attn(x, context=data, mask=mask, active_heads=active_heads)
 
                 if mask is not None:
                     # Check which rows (batch-wise) have all elements equal to 1 (fully masked)
@@ -312,15 +371,20 @@ class PerceiverDetection(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(1, feat_h, feat_w, backbones[0].num_channels))
         nn.init.normal_(self.pos_embed, std=0.02)
 
-    def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True):
+    def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True, active_views: Tensor = None):
         B, N, *_ = samples.shape
 
         if keep_encoder:
             # Process each view with its dedicated backbone
             features = []
             for view_idx in range(N):
-                view_samples = samples[:, view_idx]  # [B, C, H, W]
-                view_features = self.backbones[view_idx](view_samples)  # [B, C, h, w]
+                if active_views is None or active_views[view_idx]:
+                    # view is active
+                    view_samples = samples[:, view_idx]  # [B, C, H, W]
+                    view_features = self.backbones[view_idx](view_samples)  # [B, C, h, w]
+                else:
+                    # view is inactive
+                    view_features = torch.zeros((B, self.backbones[0].num_channels, *self.backbones[0].output_size), device=samples.device)
                 features.append(view_features)
 
             # Stack features from all views
@@ -333,6 +397,7 @@ class PerceiverDetection(nn.Module):
             # Final rearrangement for perceiver
             src = rearrange(features, "b n h w c -> b h w (n c)")
         else:
+            # TODO: implement
             src = samples
 
         hs = self.perceiver(
@@ -340,6 +405,7 @@ class PerceiverDetection(nn.Module):
             return_embeddings=True,
             latents=latents,
             keep_cross_attention=keep_encoder,
+            active_heads=None
         )
 
         out = {}
