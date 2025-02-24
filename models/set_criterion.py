@@ -63,9 +63,9 @@ class SetCriterion(nn.Module):
             probabilities = torch.sigmoid(src_logits)
 
             for t in [0.5, 0.75, 0.95]:
-                p = Precision(task='binary', threshold=t)(probabilities, target_classes)
-                r = Recall(task='binary', threshold=t)(probabilities, target_classes)
-                f1 = F1Score(task='binary', threshold=t)(probabilities, target_classes)
+                p = Precision(task='binary', threshold=t).to(probabilities.device)(probabilities, target_classes)
+                r = Recall(task='binary', threshold=t).to(probabilities.device)(probabilities, target_classes)
+                f1 = F1Score(task='binary', threshold=t).to(probabilities.device)(probabilities, target_classes)
 
                 losses.update({
                     f'binary_precision_{t}': p.detach().cpu(),
