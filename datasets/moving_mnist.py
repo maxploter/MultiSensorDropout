@@ -278,6 +278,7 @@ class MovingMNIST(Dataset):
                  split_indices=None,
                  sampler_steps=[], # epochs at which assign coresponding frame dropout probability
                  frame_dropout_probs=[], # absolut frame drop probability values
+                 view_dropout_probs=[], # absolut view drop probability values
                  dataset_fraction = 1,
                  overlap_free_initial_translation=False, # Initial digits translation in overlap free way
                  grid_size=(1,1),  # New parameter: tuple of (rows, cols) or None for no tiling
@@ -314,25 +315,40 @@ class MovingMNIST(Dataset):
 
         self.keep_frame_mask = None
         self.frame_dropout_prob = 0.0
+        self.view_dropout_prob = 0.0
         self.dataset_fraction = dataset_fraction
 
         self.sampler_steps = sampler_steps
         self.frame_dropout_probs = frame_dropout_probs
-        print("sampler_steps={} frame_dropout_probs={}".format(self.sampler_steps, self.frame_dropout_probs))
+        self.view_dropout_probs = view_dropout_probs
+        print("sampler_steps={} frame_dropout_probs={} view_dropout_probs={}".format(self.sampler_steps, self.frame_dropout_probs, self.view_dropout_probs))
 
+
+        # refactor view_dropout_probs or frame_dropout_probs could be eight None or both not None
         if self.sampler_steps is not None and len(self.sampler_steps) > 0:
             # Enable sampling length adjustment.
-            assert len(self.frame_dropout_probs) > 0
-            assert len(self.frame_dropout_probs) == len(self.sampler_steps) + 1
+            assert len(self.frame_dropout_probs) > 0 or len(self.view_dropout_probs) > 0
+
+            if len(self.frame_dropout_probs) > 0:
+                assert len(self.frame_dropout_probs) == len(self.sampler_steps) + 1
+
+            if len(self.view_dropout_probs) > 0:
+                assert len(self.view_dropout_probs) == len(self.sampler_steps) + 1
+
             for i in range(len(self.sampler_steps) - 1):
                 assert self.sampler_steps[i] < self.sampler_steps[i + 1]
             self.period_idx = 0
-            self.frame_dropout_prob = self.frame_dropout_probs[0]
+
+            if len(self.frame_dropout_probs) > 0:
+                self.frame_dropout_prob = self.frame_dropout_probs[0]
+            if len(self.view_dropout_probs) > 0:
+                self.view_dropout_prob = self.view_dropout_probs[0]
             self.current_epoch = 0
 
         if frame_dropout_pattern is not None:
           print('Disable probability based frame drops. Use frame drops based on fixed mask.')
           self.frame_dropout_prob = None
+          self.view_dropout_probs = None
           self.sampler_steps = []
           drop_frame_mask = torch.tensor([int(char) for char in frame_dropout_pattern])
           self.keep_frame_mask = 1 - drop_frame_mask
@@ -361,14 +377,20 @@ class MovingMNIST(Dataset):
 
     def set_epoch(self, epoch):
         self.current_epoch = epoch
-        if self.frame_dropout_probs is None or len(self.frame_dropout_probs) == 0:
+        if ((self.frame_dropout_probs is None or len(self.frame_dropout_probs) == 0) and
+            (self.view_dropout_probs is None or len(self.view_dropout_probs) == 0)):
             return
 
         for i in range(len(self.sampler_steps)):
             if epoch >= self.sampler_steps[i]:
                 self.period_idx = i + 1
         print("set epoch: epoch {} period_idx={}".format(epoch, self.period_idx))
-        self.frame_dropout_prob = self.frame_dropout_probs[self.period_idx]
+
+        if len(self.frame_dropout_probs) > 0:
+            self.frame_dropout_prob = self.frame_dropout_probs[self.period_idx]
+
+        if len(self.view_dropout_probs) > 0:
+            self.view_dropout_prob = self.view_dropout_probs[self.period_idx]
 
     def step_epoch(self):
         # one epoch finishes.
@@ -465,11 +487,21 @@ class MovingMNIST(Dataset):
 
       if self.keep_frame_mask is not None:
         keep_frame_flags = self.keep_frame_mask
+        keep_view_flags = None # TODO: Implement view dropout for fixed frame dropout mask
       else:
         num_potential_drop_frames = self.num_frames // 2
         frame_keep_probs = torch.rand(num_potential_drop_frames)
         keep_frame_flags = (frame_keep_probs > self.frame_dropout_prob).int()
         keep_frame_flags = torch.cat([torch.ones(self.num_frames - num_potential_drop_frames), keep_frame_flags])
+
+        number_of_views = self.grid_size[0] * self.grid_size[1]
+
+        keep_view_flags = (torch.rand(num_potential_drop_frames * number_of_views) > self.view_dropout_prob).int().reshape(num_potential_drop_frames, number_of_views)
+        keep_view_flags = torch.cat([
+            torch.ones((self.num_frames - num_potential_drop_frames)*number_of_views).reshape(-1, number_of_views),
+            keep_view_flags
+        ])
+
 
       for frame_number, (img, target) in enumerate(zip(images, targets)):
         if target['center_points'].size(0) > 0:
@@ -479,6 +511,7 @@ class MovingMNIST(Dataset):
 
         target['keep_frame'] = keep_frame_flags[frame_number]
         target['orig_size'] = torch.as_tensor([int(self.img_size), int(self.img_size)])
+        target['active_views'] = keep_view_flags[frame_number]
 
       images = self.batch_tfms(images)
 

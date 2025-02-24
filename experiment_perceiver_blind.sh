@@ -62,7 +62,7 @@ python train.py \
     --train_dataset_fraction $train_dataset_fraction \
     --test_dataset_fraction $test_dataset_fraction \
     --num_workers 4 \
-    --frame_dropout_pattern '00001111' \
+    --frame_dropout_probs \
     --num_objects $num_objects \
     --img_size 128 \
     --grid_size $grid_size \
