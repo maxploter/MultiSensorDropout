@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torchmetrics import Precision, Recall, F1Score
 
 from models.matcher import build_matcher
 from util.misc import sigmoid_focal_loss, accuracy, is_multi_head_fn
@@ -52,6 +53,20 @@ class SetCriterion(nn.Module):
             # pos_weight=torch.tensor([9], device=src_logits.device)
         )
         losses = {'loss_bce': loss_bce}
+
+        if log:
+            probabilities = torch.sigmoid(src_logits)
+
+            for t in [0.5, 0.75, 0.95]:
+                p = Precision(task='binary', threshold=t)(probabilities, target_classes)
+                r = Recall(task='binary', threshold=t)(probabilities, target_classes)
+                f1 = F1Score(task='binary', threshold=t)(probabilities, target_classes)
+
+                losses.update({
+                    f'binary_precision_{t}': p.detach().cpu(),
+                    f'binary_recall_{t}': r.detach().cpu(),
+                    f'binary_f1_{t}': f1.detach().cpu(),
+                })
 
         return losses
 
