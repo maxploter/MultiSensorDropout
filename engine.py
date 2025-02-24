@@ -68,6 +68,7 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
                 **{k: metric.compute().item() for k, metric in metric_logger.items()},
                 "lr": optimizer.param_groups[0]["lr"],
                 'frame_dropout_prob': dataloader.dataset.frame_dropout_prob,
+                'view_dropout_prob': dataloader.dataset.view_dropout_prob,
             })
 
     avg_values = {k: metric.compute().item() for k, metric in metric_logger.items()}
@@ -131,6 +132,7 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
               progress_bar.set_postfix({
                   **{k: metric.compute().item() for k, metric in metric_logger.items()},
                   'frame_dropout_prob': dataloader.dataset.frame_dropout_prob,
+                  'view_dropout_prob': dataloader.dataset.view_dropout_prob,
               })
 
             if average_displacement_error_evaluator:

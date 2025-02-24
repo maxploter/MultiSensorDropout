@@ -377,7 +377,8 @@ class MovingMNIST(Dataset):
 
     def set_epoch(self, epoch):
         self.current_epoch = epoch
-        if self.frame_dropout_probs is None or len(self.frame_dropout_probs) == 0:
+        if ((self.frame_dropout_probs is None or len(self.frame_dropout_probs) == 0) and
+            (self.view_dropout_probs is None or len(self.view_dropout_probs) == 0)):
             return
 
         for i in range(len(self.sampler_steps)):

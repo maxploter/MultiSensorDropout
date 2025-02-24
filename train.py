@@ -247,7 +247,8 @@ def main(args):
             **{f'test_blind_{k}': v for k, v in blind_stats.items()},
             'epoch': epoch,
             'n_parameters': n_parameters,
-            'frame_dropout_prob': dataset_train.frame_dropout_prob
+            'frame_dropout_prob': dataset_train.frame_dropout_prob,
+            'view_dropout_prob': dataset_train.view_dropout_prob,
         }
 
         if output_dir:
@@ -305,6 +306,9 @@ def get_wandb_init_config(args):
 
         if args.frame_dropout_probs is not None and len(args.frame_dropout_probs) > 0:
             notes += f',frame_dropout_probs:{len(args.frame_dropout_probs)}'
+
+        if args.view_dropout_probs is not None and len(args.view_dropout_probs) > 0:
+            notes += f',view_dropout_probs:{len(args.view_dropout_probs)}'
 
         if args.hidden_dim != 128:
             notes += f',hidden_dim:{args.hidden_dim}'

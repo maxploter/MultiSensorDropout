@@ -32,7 +32,7 @@ class PerceiverAr(nn.Module):
 
         for timestamp, batch in enumerate(src):
             keep_frame = targets[timestamp]['keep_frame'].bool().item()
-            active_views = targets[timestamp]['active_views'].bool().item()
+            active_views = targets[timestamp]['active_views'].bool()
 
             if not keep_frame:
                 # drop the frame

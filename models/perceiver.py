@@ -140,7 +140,7 @@ class Attention(nn.Module):
             context_chunks = context.chunk(h, dim=-1)  # [B, seq_len, (d_view)] * h
             head_outputs = []
             for head_idx in range(h):
-                if active_heads is not None and head_idx not in active_heads:
+                if active_heads is not None and not active_heads[head_idx]:
                     # Zero-initialize output for inactive heads
                     head_out = torch.zeros(x.shape[0], x.shape[1], dh, device=x.device)
                     head_outputs.append(head_out)
@@ -382,6 +382,7 @@ class PerceiverDetection(nn.Module):
                     # view is active
                     view_samples = samples[:, view_idx]  # [B, C, H, W]
                     view_features = self.backbones[view_idx](view_samples)  # [B, C, h, w]
+                    view_features = view_features + self.pos_embed
                 else:
                     # view is inactive
                     view_features = torch.zeros((B, self.backbones[0].num_channels, *self.backbones[0].output_size), device=samples.device)
@@ -392,7 +393,6 @@ class PerceiverDetection(nn.Module):
 
             # Add spatial position embeddings to each view
             features = rearrange(features, "b n c h w -> b n h w c")
-            features = features + self.pos_embed
 
             # Final rearrangement for perceiver
             src = rearrange(features, "b n h w c -> b h w (n c)")
@@ -405,7 +405,7 @@ class PerceiverDetection(nn.Module):
             return_embeddings=True,
             latents=latents,
             keep_cross_attention=keep_encoder,
-            active_heads=None
+            active_heads=active_views
         )
 
         out = {}
