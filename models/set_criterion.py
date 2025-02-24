@@ -50,9 +50,14 @@ class SetCriterion(nn.Module):
         loss_bce = F.binary_cross_entropy_with_logits(
             src_logits, target_classes,
             weight=weights,
+            reduction='sum'
             # pos_weight=torch.tensor([9], device=src_logits.device)
         )
-        losses = {'loss_bce': loss_bce}
+
+        losses = {
+            'loss_bce': loss_bce,
+            'total_effective_samples': weights.sum()
+        }
 
         if log:
             probabilities = torch.sigmoid(src_logits)
@@ -196,6 +201,15 @@ class SetCriterion(nn.Module):
 
         if 'loss_center_point' in losses:
             losses['loss_center_point'] /= num_objects
+        if 'loss_bce' in losses:
+            losses['loss_bce'] /= losses['total_effective_samples']
+
+        losses_result = {}
+        for k, v in losses.items():
+            if k.startswith('binary_'):
+                losses_result[k] = v / len(indices_per_head)
+            else:
+                losses_result[k] = v
 
         return losses
 

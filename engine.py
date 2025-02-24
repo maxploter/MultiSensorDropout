@@ -58,14 +58,14 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
         if 'class_error' in loss_dict:
             metric_logger["class_error"].update(loss_dict['class_error'].item())
 
-        for k, v in loss_dict.items():
-            if 'binary_precision' in k or 'binary_recall' in k or 'binary_f1' in k:
-                metric_logger[k].update(loss_dict[k].item())
-
         for k, v in loss_dict_unscaled.items():
             metric_logger[k].update(v.item())
         for k, v in loss_dict_scaled.items():
             metric_logger[k].update(v.item())
+
+        for k, v in loss_dict.items():
+            if 'binary_precision' in k or 'binary_recall' in k or 'binary_f1' in k:
+                metric_logger[k].update(loss_dict[k].item())
 
         if i % print_freq == 0 or i == len(dataloader) - 1:
             progress_bar.set_postfix({
