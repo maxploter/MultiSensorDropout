@@ -40,6 +40,7 @@ train_dataset_fraction=0.5
 test_dataset_fraction=1.0
 num_queries=256
 weight_loss_center_point=5
+weight_loss_bce=1
 eval_interval=1
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -51,6 +52,7 @@ while [[ "$#" -gt 0 ]]; do
     --test_dataset_fraction) test_dataset_fraction="$2"; shift ;;
     --num_queries) num_queries="$2"; shift ;;
     --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
+    --weight_loss_bce) weight_loss_bce="$2"; shift ;;
     --eval_interval) eval_interval="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
@@ -72,4 +74,5 @@ python train.py \
     --tile_overlap $tile_overlap \
     --num_queries $num_queries \
     --multi_classification_heads \
-    --weight_loss_center_point $weight_loss_center_point
+    --weight_loss_center_point $weight_loss_center_point \
+    --weight_loss_bce $weight_loss_bce
