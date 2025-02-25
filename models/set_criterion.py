@@ -29,13 +29,18 @@ class SetCriterion(nn.Module):
         assert 'pred_logits' in outputs
         src_logits = outputs['pred_logits']
 
-        idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([
-            torch.full(J.shape, 1, dtype=torch.int64, device=src_logits.device)
-            for t, (_, J) in zip(targets, indices)])
         target_classes = torch.full(src_logits.shape[:2], 0,
                                     dtype=torch.int64, device=src_logits.device)
-        target_classes[idx] = target_classes_o
+
+        if not all(t['center_points'].numel() == 0 for t in targets):
+            # assign GT label
+            idx = self._get_src_permutation_idx(indices)
+            target_classes_o = torch.cat([
+                torch.full(J.shape, 1, dtype=torch.int64, device=src_logits.device)
+                for t, (_, J) in zip(targets, indices)])
+
+            target_classes[idx] = target_classes_o
+
         target_classes = target_classes.float()  # Convert target_classes to Float
 
         negative_weight = 0.1
@@ -60,6 +65,7 @@ class SetCriterion(nn.Module):
         }
 
         if log:
+            # when have targets
             probabilities = torch.sigmoid(src_logits)
 
             for t in [0.5, 0.75, 0.95]:
@@ -145,6 +151,10 @@ class SetCriterion(nn.Module):
         """
         assert 'pred_center_points' in outputs
 
+        if all(t['center_points'].numel() == 0 for t in targets):
+            # no GT for the head
+            return {}
+
         idx = self._get_src_permutation_idx(indices)
         src_cps = outputs['pred_center_points'][idx]
         target_cps = torch.cat([t['center_points'][i] for t, (_, i) in zip(targets, indices)], dim=0)
@@ -171,11 +181,13 @@ class SetCriterion(nn.Module):
 
         is_multi_head = is_multi_head_fn(outputs.keys())
 
+        # get first value from head_output
+        head_output_device = next(iter(head_output.values())).device
+
+        number_of_type_of_objects = torch.unique(torch.cat([t["labels"] for t in targets])).numel()
+
         for head_id, indices in indices_per_head.items():
             head_output = outputs[head_id]
-
-            # get first value from head_output
-            head_output_device = next(iter(head_output.values())).device
 
             if is_multi_head:
                 tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
@@ -207,7 +219,7 @@ class SetCriterion(nn.Module):
         losses_result = {}
         for k, v in losses.items():
             if k.startswith('binary_'):
-                losses_result[k] = v / len(indices_per_head)
+                losses_result[k] = v / number_of_type_of_objects
             else:
                 losses_result[k] = v
 
