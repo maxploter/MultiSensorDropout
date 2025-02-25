@@ -88,7 +88,7 @@ class HungarianMatcher(nn.Module):
                 ])
 
             if tgt_center_points.numel() == 0:
-                # result_indices[head_id] = (torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64))
+                result_indices[head_id] = [(torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64))] #TODO increase number of elements
                 continue
 
             if is_multi_head:

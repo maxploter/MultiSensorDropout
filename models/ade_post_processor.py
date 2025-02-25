@@ -30,6 +30,10 @@ class AverageDisplacementErrorEvaluator:
         for head_id, indices in indices_per_head.items():
             head_outputs = outputs[head_id]
 
+            if all(i[0].numel() == 0 for i in indices):
+                # no GT for the head
+                continue
+
             if is_multi_head:
                 tgt_mask = [[t["labels"] == int(head_id)] for t in targets]
 
