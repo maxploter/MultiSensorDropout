@@ -368,7 +368,7 @@ class PerceiverDetection(nn.Module):
 
         # Keep only spatial position embeddings
         feat_h, feat_w = self.backbones[0].output_size
-        self.pos_embed = nn.Parameter(torch.zeros(1, feat_h, feat_w, backbones[0].num_channels))
+        self.pos_embed = nn.Parameter(torch.zeros(1, backbones[0].num_channels, feat_h, feat_w))
         nn.init.normal_(self.pos_embed, std=0.02)
 
     def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True, active_views: Tensor = None):
