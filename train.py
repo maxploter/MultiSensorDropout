@@ -38,6 +38,7 @@ def parse_args():
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--focal_loss', action='store_true')
     parser.add_argument('--weight_loss_center_point', type=int, default=5, help='Weight loss center point')
+    parser.add_argument('--weight_loss_bce', type=int, default=1, help='Weight loss binary cross entropy')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
