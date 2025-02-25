@@ -232,7 +232,7 @@ def main(args):
 
         blind_stats = {}
         test_stats = {}
-        if epoch == 1 or epoch % args.eval_interval == 0:
+        if epoch % args.eval_interval == 0:
             test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
             if dataloader_val_blind:
                 blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
