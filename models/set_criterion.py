@@ -211,7 +211,7 @@ class SetCriterion(nn.Module):
             else:
                 losses_result[k] = v
 
-        return losses
+        return losses_result
 
     def get_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
         loss_map = {
