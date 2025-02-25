@@ -34,6 +34,9 @@ timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
 
 num_objects=2
+hidden_dim=128 # Perceiver hidden size
+learning_rate=1e-3
+learning_rate_backbone=1e-4
 grid_size="1 1"
 tile_overlap=0.0
 train_dataset_fraction=0.5
@@ -46,6 +49,9 @@ eval_interval=1
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --num_objects) num_objects="$2"; shift ;;  # Parse --num_objects and its value
+    --hidden_dim) hidden_dim="$2"; shift ;;
+    --learning_rate) learning_rate="$2"; shift ;;
+    --learning_rate_backbone) learning_rate_backbone="$2"; shift ;;
     --grid_size) grid_size="$2"; shift ;;
     --tile_overlap) tile_overlap="$2"; shift ;;
     --train_dataset_fraction) train_dataset_fraction="$2"; shift ;;
@@ -63,10 +69,13 @@ python train.py \
     --model $model \
     --backbone 'cnn' \
     --eval_interval $eval_interval \
+    --learning_rate $learning_rate \
+    --learning_rate_backbone $learning_rate_backbone \
     --output_dir $output_dir \
     --train_dataset_fraction $train_dataset_fraction \
     --test_dataset_fraction $test_dataset_fraction \
     --num_workers 4 \
+    --hidden_dim $hidden_dim \
     --frame_dropout_probs \
     --num_objects $num_objects \
     --img_size 128 \
