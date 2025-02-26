@@ -210,11 +210,11 @@ def main(args):
 
         dataset_test = build_dataset('test', args)
         sampler_test = torch.utils.data.SequentialSampler(dataset_test)
-        dataloader_test = DataLoader(dataset_test, sampler=sampler_val, batch_size=args.batch_size,
+        dataloader_test = DataLoader(dataset_test, sampler=sampler_test, batch_size=args.batch_size,
                                     collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
         dataset_test.set_epoch(epoch)
 
-        test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
+        test_stats = evaluate(model, dataloader_test, criterion, postprocessors, epoch, device)
         blind_stats = {}
         if args.frame_dropout_pattern is not None:
             dataset_test_blind = build_dataset('test', args, frame_dropout_pattern=args.frame_dropout_pattern)

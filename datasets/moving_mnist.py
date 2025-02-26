@@ -315,6 +315,7 @@ class MovingMNIST(Dataset):
         self.overlap_free_initial_translation = overlap_free_initial_translation
 
         self.keep_frame_mask = None
+        self.keep_view_mask = None
         self.frame_dropout_prob = 0.0
         self.view_dropout_prob = 0.0
         self.dataset_fraction = dataset_fraction
@@ -355,6 +356,17 @@ class MovingMNIST(Dataset):
           self.keep_frame_mask = 1 - drop_frame_mask
           assert self.keep_frame_mask.size(0) == self.num_frames, f"Frame dropout pattern must have the same length as the number of frames. Num of frames {self.num_frames} and mask size {self.keep_frame_mask.size(0)}"
           print(f'Set frame keep mask: {self.keep_frame_mask}')
+
+          number_of_views = grid_size[0] * grid_size[1]
+
+          num_potential_drop_frames = torch.sum(drop_frame_mask).item()
+          keep_view_flags = torch.zeros(num_potential_drop_frames * number_of_views).reshape(num_potential_drop_frames,
+                                                                                             number_of_views)
+          self.keep_view_mask = torch.cat([
+              torch.ones((self.num_frames - num_potential_drop_frames) * number_of_views).reshape(-1, number_of_views),
+              keep_view_flags
+          ])
+          print(f'Set view keep mask: {self.keep_view_mask}')
 
         # some computation to ensure normalizing correctly-ish
         batch_tfms = [T.ConvertImageDtype(torch.float32)]
@@ -486,9 +498,9 @@ class MovingMNIST(Dataset):
 
       targets = copy.deepcopy(targets) # targets dictionary is mutable
 
-      if self.keep_frame_mask is not None:
-        keep_frame_flags = self.keep_frame_mask
-        keep_view_flags = None # TODO: Implement view dropout for fixed frame dropout mask
+      if self.keep_view_mask is not None:
+        keep_frame_flags = torch.ones(self.keep_frame_mask.shape) #TODO refactor later disable frame level drop out
+        keep_view_flags = self.keep_view_mask
       else:
         num_potential_drop_frames = self.num_frames // 2
         frame_keep_probs = torch.rand(num_potential_drop_frames)
