@@ -6,7 +6,8 @@ import torch
 import torchmetrics
 from tqdm import tqdm
 
-from models.ade_post_processor import AverageDisplacementErrorEvaluator
+from models.ade_post_processor import AverageDisplacementErrorEvaluator, MultiHeadPostProcessTrajectory, \
+    MultiHeadAverageDisplacementErrorEvaluator
 
 
 def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
@@ -84,13 +85,18 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
 
 
 def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
-
     average_displacement_error_evaluator = None
     if 'trajectory' in postprocessors:
-      average_displacement_error_evaluator = AverageDisplacementErrorEvaluator(
-          matcher=criterion.matcher,
-          img_size=dataloader.dataset.img_size,
-        )
+        if postprocessors['trajectory'] is MultiHeadPostProcessTrajectory:
+            average_displacement_error_evaluator = MultiHeadAverageDisplacementErrorEvaluator(
+                matcher=criterion.matcher,
+                img_size=dataloader.dataset.img_size,
+            )
+        else:
+            average_displacement_error_evaluator = AverageDisplacementErrorEvaluator(
+                matcher=criterion.matcher,
+                img_size=dataloader.dataset.img_size,
+            )
 
     model.eval()
 

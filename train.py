@@ -14,7 +14,7 @@ import wandb
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
-from models.ade_post_processor import PostProcessTrajectory
+from models.ade_post_processor import PostProcessTrajectory, MultiHeadPostProcessTrajectory
 from models.set_criterion import build_criterion
 from util.misc import collate_fn, is_main_process, get_sha, get_rank
 
@@ -138,7 +138,8 @@ def main(args):
 
     # Model, criterion, optimizer, and scheduler
     model = build_model(args, dataset_train.input_image_view_size)
-    postprocessors = {'trajectory': PostProcessTrajectory()}
+    postprocessors = {'trajectory': MultiHeadPostProcessTrajectory() if hasattr(args,
+                                                                                'multi_classification_heads') and args.multi_classification_heads else PostProcessTrajectory()}
 
     def match_name_keywords(n, name_keywords):
         out = False

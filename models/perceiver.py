@@ -416,9 +416,9 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
                 detection_object_id=f'{i}'
             ))
     else:
-        classification_heads = nn.ModuleList([ObjectDetectionHead(
+        classification_heads = ObjectDetectionHead(
             num_classes=num_classes,
             latent_dim=args.hidden_dim
-        )])
+        )
 
     return backbone, perceiver, classification_heads

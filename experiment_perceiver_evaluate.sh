@@ -50,7 +50,6 @@ while [[ "$#" -gt 0 ]]; do
     --tile_overlap) tile_overlap="$2"; shift ;;
     --num_queries) num_queries="$2"; shift ;;
     --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
-    --weight_loss_bce) weight_loss_bce="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -72,7 +71,6 @@ for num in "${num_objects[@]}"; do
     --grid_size $grid_size \
     --tile_overlap $tile_overlap \
     --num_queries $num_queries \
-    --weight_loss_center_point $weight_loss_center_point \
-    --weight_loss_bce $weight_loss_bce
+    --weight_loss_center_point $weight_loss_center_point
 done
 
