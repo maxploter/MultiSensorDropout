@@ -15,6 +15,9 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 
     split_indices_attr = f"{split}_split_indices"
 
+    if split == 'test':
+        args.test_split_indices = None
+
     if not hasattr(args, split_indices_attr) or getattr(args, f"{split}_split_indices") == None or len(getattr(args, f"{split}_split_indices")) == 0:
         # Load the MNIST dataset only once
         full_dataset = MNIST(".", download=True)
@@ -70,6 +73,22 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             img_size=args.img_size,
             num_frames=args.num_frames,
             split_indices=split_indices,
+            frame_dropout_pattern=frame_dropout_pattern,
+            dataset_fraction=args.test_dataset_fraction,
+            affine_params=affine_params,
+            overlap_free_initial_translation=args.overlap_free_initial_position,
+            grid_size=args.grid_size,
+            tile_overlap=args.tile_overlap,
+        )
+    elif split == 'test':
+        dataset = MovingMNIST(
+            normalize=True,
+            bounce=args.bounce,
+            num_digits=num_digits,
+            img_size=args.img_size,
+            num_frames=args.num_frames,
+            split_indices=split_indices,
+            is_test=True,
             frame_dropout_pattern=frame_dropout_pattern,
             dataset_fraction=args.test_dataset_fraction,
             affine_params=affine_params,

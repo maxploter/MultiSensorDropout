@@ -206,13 +206,22 @@ def main(args):
         dataset_val_blind.set_epoch(start_epoch)
 
     if args.eval:
-        epoch = 1
-        # TODO add test dataset
-        test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
-        blind_stats = {}
+        epoch = 0
 
-        if dataloader_val_blind:
-            blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
+        dataset_test = build_dataset('test', args)
+        sampler_test = torch.utils.data.SequentialSampler(dataset_test)
+        dataloader_test = DataLoader(dataset_test, sampler=sampler_test, batch_size=args.batch_size,
+                                    collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
+        dataset_test.set_epoch(epoch)
+
+        test_stats = evaluate(model, dataloader_test, criterion, postprocessors, epoch, device)
+        blind_stats = {}
+        if args.frame_dropout_pattern is not None:
+            dataset_test_blind = build_dataset('test', args, frame_dropout_pattern=args.frame_dropout_pattern)
+            sampler_test_blind = torch.utils.data.SequentialSampler(dataset_test_blind)
+            dataloader_test_blind = DataLoader(dataset_test_blind, sampler=sampler_test_blind, batch_size=args.batch_size,
+                                              collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
+            blind_stats = evaluate(model, dataloader_test_blind, criterion, postprocessors, epoch, device)
 
         log_stats = {
             **{f'test_default_{k}': v for k, v in test_stats.items()},
