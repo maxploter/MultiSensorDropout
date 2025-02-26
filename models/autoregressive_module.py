@@ -8,25 +8,25 @@ class AutoRegressiveModule(nn.Module):
     def __init__(self,
                  backbone,
                  recurrent_module,
-                 detection_heads,
+                 detection_head,
                  number_of_views,
                  ):
         super().__init__()
 
         self.backbone = backbone
         self.recurrent_module = recurrent_module
-        self.detection_head = detection_heads
+        self.detection_head = detection_head
 
         feat_h, feat_w = self.backbone.output_size
-        self.pos_embed = nn.Parameter(torch.zeros(number_of_views, backbone.num_channels, feat_h, feat_w))
-        nn.init.normal_(self.pos_embed, std=0.02)
+        self.pos_encod = nn.Parameter(torch.zeros(number_of_views, backbone.num_channels, feat_h, feat_w))
+        nn.init.normal_(self.pos_encod, std=0.02)
 
     def forward(self, samples, targets: list = None):
 
         src = samples.permute(1, 2, 0, 3, 4, 5)  # change dimension order from BTN___ to TNB___
 
         device = None
-        result = {}
+        result = {'pred_logits': [], 'pred_center_points': []}
         hs = None
 
         assert len(targets) == 1
@@ -38,8 +38,8 @@ class AutoRegressiveModule(nn.Module):
             for view_id, batch_view in enumerate(batch):
                 if active_views[view_id]:
                     batch_view = self.backbone(batch_view)
+                    batch_view = batch_view + self.pos_encod[view_id]
                     batch_view = batch_view.permute(0, 2, 3, 1)
-                    batch_view += self.pos_embed[view_id]
                 else:
                     # drop the view
                     batch_view = None
@@ -49,31 +49,24 @@ class AutoRegressiveModule(nn.Module):
                     latents=hs,
                 )
 
-            out = {}
-            for i, head in enumerate(self.detection_heads):
-                out[head.detection_object_id] = head(hs)
+            out = self.detection_head(hs)
 
-            for detection_object_id, out_predictions in out.items():
-                if detection_object_id not in result:
-                    result[detection_object_id] = {'pred_logits': [], 'pred_center_points': []}
+            result['pred_logits'].extend(out['pred_logits']) # [QC]
+            result['pred_center_points'].extend(out['pred_center_points'])
 
-                result[detection_object_id]['pred_logits'].extend(out_predictions['pred_logits']) # [QC]
-                result[detection_object_id]['pred_center_points'].extend(out_predictions['pred_center_points'])
-
-        for _, pred in result.items():
-            pred['pred_logits'] = torch.stack(pred['pred_logits'])
-            pred['pred_center_points'] = torch.stack(pred['pred_center_points'])
+        result['pred_logits'] = torch.stack(result['pred_logits'])
+        result['pred_center_points'] = torch.stack(result['pred_center_points'])
 
         return result, targets
 
 
 def build_perceiver_ar_model(args, num_classes, input_image_view_size):
-    backbone, perceiver, detection_heads = build_model_perceiver(args, num_classes=num_classes, input_image_view_size=input_image_view_size)
+    backbone, perceiver, detection_head = build_model_perceiver(args, num_classes=num_classes, input_image_view_size=input_image_view_size)
 
     model = AutoRegressiveModule(
         backbone=backbone,
         recurrent_module=perceiver,
-        detection_heads=detection_heads,
+        detection_head=detection_head,
         number_of_views=args.grid_size[0] * args.grid_size[1],
     )
 
