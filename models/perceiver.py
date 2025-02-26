@@ -312,7 +312,7 @@ class PerceiverDetection(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(1, backbone.num_channels, feat_h, feat_w))
         nn.init.normal_(self.pos_embed, std=0.02)
 
-    def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True, active_views: Tensor = None):
+    def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True):
         src = None
         if keep_encoder: # TODO REMOVE keep encoder
             samples = self.backbone(samples)
@@ -324,7 +324,6 @@ class PerceiverDetection(nn.Module):
             return_embeddings=True,
             latents=latents,
             keep_cross_attention=keep_encoder,
-            active_heads=active_views
         )
 
         out = {}
@@ -439,14 +438,14 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         latent_dim=args.hidden_dim,  # latent dimension
         cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
         latent_heads=args.nheads,  # number of heads for latent self attention, 8
-        cross_dim_head=num_channels_from_backbone,
+        cross_dim_head=(num_channels + fourier_channels) // args.enc_nheads_cross,
         # number of dimensions per cross attention head
         latent_dim_head=args.hidden_dim // args.nheads,  # number of dimensions per latent self attention head
         num_classes=-1,  # NOT USED. output number of classes.
         attn_dropout=args.dropout,
         ff_dropout=args.dropout,
         weight_tie_layers=False,  # whether to weight tie layers (optional, as indicated in the diagram)
-        fourier_encode_data=False,
+        fourier_encode_data=True,
         # whether to auto-fourier encode the data, using the input_axis given. defaults to True, but can be turned off if you are fourier encoding the data yourself
         self_per_cross_attn=args.self_per_cross_attn,  # number of self attention blocks per cross attention
         final_classifier_head=False  # mean pool and project embeddings to number of classes (num_classes) at the end
@@ -466,4 +465,4 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
             latent_dim=args.hidden_dim
         )])
 
-    return backbones, perceiver, classification_heads
+    return backbone, perceiver, classification_heads
