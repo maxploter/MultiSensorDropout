@@ -91,98 +91,40 @@ class Attention(nn.Module):
     def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.):
         super().__init__()
         inner_dim = dim_head * heads
-        self.is_cross_attention = context_dim is not None # Provided with data input dimension
         context_dim = default(context_dim, query_dim)
 
         self.scale = dim_head ** -0.5
         self.heads = heads
-        self.dim_head = dim_head
 
-        if self.is_cross_attention:
-            # Separate Q projections per head (for latent queries)
-            self.to_qs = nn.ModuleList([
-                nn.Linear(query_dim, dim_head, bias=False)
-                for _ in range(heads)
-            ])
-
-            # Separate K/V projections per head (for each view)
-            self.to_kvs = nn.ModuleList([
-                nn.Linear(context_dim // heads, 2 * dim_head, bias=False)
-                for _ in range(heads)
-            ])
-        else:
-            # self-attention
-            self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
-            self.to_kv = nn.Linear(context_dim, inner_dim * 2, bias=False)
+        self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
+        self.to_kv = nn.Linear(context_dim, inner_dim * 2, bias=False)
 
         self.dropout = nn.Dropout(dropout)
         self.to_out = nn.Linear(inner_dim, query_dim)
 
-    def forward(self, x, context=None, mask=None, active_heads=None):
-        """
-        Args:
-            x (torch.Tensor): query tensor
-                shape (b, n, d)
-            context (torch.Tensor): input data tensor (feature map)
-                shape (b, m, d), default to None
-            mask (torch.Tensor): mask tensor
-                shape (b, n, m), default to None
-            active_heads (list): list of indices of active heads
-                default to None
-        """
+    def forward(self, x, context=None, mask=None):
         h = self.heads
-        dh = self.dim_head
 
+        q = self.to_q(x)
         context = default(context, x)
-        # k, v = self.to_kv(context).chunk(2, dim=-1)
+        k, v = self.to_kv(context).chunk(2, dim=-1)
 
-        if self.is_cross_attention:
-            context_chunks = context.chunk(h, dim=-1)  # [B, seq_len, (d_view)] * h
-            head_outputs = []
-            for head_idx in range(h):
-                if active_heads is not None and not active_heads[head_idx]:
-                    # Zero-initialize output for inactive heads
-                    head_out = torch.zeros(x.shape[0], x.shape[1], dh, device=x.device)
-                    head_outputs.append(head_out)
-                    continue
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
 
-                # Project Q from latents for this head
-                q = self.to_qs[head_idx](x)  # [B, num_latents, dh]
+        sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
 
-                # Project K/V from corresponding view
-                view_context = context_chunks[head_idx]
-                k, v = self.to_kvs[head_idx](view_context).chunk(2, dim=-1)  # [B, seq_len, dh], [B, seq_len, dh]
+        if exists(mask):
+            mask = rearrange(mask, 'b ... -> b (...)')
+            max_neg_value = -torch.finfo(sim.dtype).max
+            mask = repeat(mask, 'b j -> (b h) () j', h=h)
+            sim.masked_fill_(mask, max_neg_value)  # Fills elements of self tensor with value where mask is True
 
-                # Compute attention
-                sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
-                attn = sim.softmax(dim=-1)
-                attn = self.dropout(attn)
+        # attention, what we cannot get enough of
+        attn = sim.softmax(dim=-1)
+        attn = self.dropout(attn)
 
-                head_out = einsum('b i j, b j d -> b i d', attn, v)
-                head_outputs.append(head_out)
-
-            # Concatenate all head outputs (active + zeros for inactive)
-            out = torch.cat(head_outputs, dim=-1)
-        else:
-            q = self.to_q(x)
-            k, v = self.to_kv(context).chunk(2, dim=-1)
-
-            q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
-
-            sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
-
-            if exists(mask):
-                mask = rearrange(mask, 'b ... -> b (...)')
-                max_neg_value = -torch.finfo(sim.dtype).max
-                mask = repeat(mask, 'b j -> (b h) () j', h=h)
-                sim.masked_fill_(mask, max_neg_value)  # Fills elements of self tensor with value where mask is True
-
-            # attention, what we cannot get enough of
-            attn = sim.softmax(dim=-1)
-            attn = self.dropout(attn)
-
-            out = einsum('b i j, b j d -> b i d', attn, v)
-            out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
+        out = einsum('b i j, b j d -> b i d', attn, v)
+        out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
         return self.to_out(out)
 
 
@@ -293,27 +235,28 @@ class Perceiver(nn.Module):
             data,  # b ()
             latents=None,  # (b, num_latents, latent_dim)
             mask=None,
-            return_embeddings=False,
-            keep_cross_attention=True,
-            active_heads=None,
+            return_embeddings=True,
     ):
-        b, *axis, _, device, dtype = *data.shape, data.device, data.dtype
-        assert len(axis) == self.input_axis, 'input data must have the right number of axis'
+        b = 1 # we always assume batch is 1
+        if data is not None:
 
-        if self.fourier_encode_data and keep_cross_attention:
-            # calculate fourier encoded positions in the range of [-1, 1], for all axis
+            b, *axis, _, device, dtype = *data.shape, data.device, data.dtype
+            assert len(axis) == self.input_axis, 'input data must have the right number of axis'
 
-            axis_pos = list(map(lambda size: torch.linspace(-1., 1., steps=size, device=device, dtype=dtype), axis))
-            pos = torch.stack(torch.meshgrid(*axis_pos, indexing='ij'), dim=-1)
-            enc_pos = fourier_encode(pos, self.max_freq, self.num_freq_bands)
-            enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
-            enc_pos = repeat(enc_pos, '... -> b ...', b=b)
+            if self.fourier_encode_data:
+                # calculate fourier encoded positions in the range of [-1, 1], for all axis
 
-            data = torch.cat((data, enc_pos), dim=-1)
+                axis_pos = list(map(lambda size: torch.linspace(-1., 1., steps=size, device=device, dtype=dtype), axis))
+                pos = torch.stack(torch.meshgrid(*axis_pos, indexing='ij'), dim=-1)
+                enc_pos = fourier_encode(pos, self.max_freq, self.num_freq_bands)
+                enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
+                enc_pos = repeat(enc_pos, '... -> b ...', b=b)
 
-        # concat to channels of data and flatten axis
+                data = torch.cat((data, enc_pos), dim=-1)
 
-        data = rearrange(data, 'b ... d -> b (...) d')
+            # concat to channels of data and flatten axis
+
+            data = rearrange(data, 'b ... d -> b (...) d')
 
         if latents is not None:
             x = latents
@@ -324,8 +267,8 @@ class Perceiver(nn.Module):
 
         for cross_attn, cross_ff, self_attns in self.layers:
 
-            if keep_cross_attention:
-                x_cross = cross_attn(x, context=data, mask=mask, active_heads=active_heads)
+            if data is not None:
+                x_cross = cross_attn(x, context=data, mask=mask)
 
                 if mask is not None:
                     # Check which rows (batch-wise) have all elements equal to 1 (fully masked)
@@ -353,75 +296,6 @@ class Perceiver(nn.Module):
         # to logits
 
         return self.to_logits(x)
-
-
-class PerceiverDetection(nn.Module):
-    def __init__(self, backbones, perceiver, classification_heads, grid_size):
-        super().__init__()
-        self.backbones = backbones
-        self.perceiver = perceiver
-        self.classification_heads = classification_heads
-        # Compatibility with TrackingBaseModel
-        self.num_queries = perceiver.latents.shape[0]
-        self.hidden_dim = perceiver.latents.shape[1]
-        self.overflow_boxes = False
-
-        # Keep only spatial position embeddings
-        feat_h, feat_w = self.backbones[0].output_size
-        self.pos_embed = nn.Parameter(torch.zeros(1, backbones[0].num_channels, feat_h, feat_w))
-        nn.init.normal_(self.pos_embed, std=0.02)
-
-    def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True, active_views: Tensor = None):
-        B, N, *_ = samples.shape
-
-        if keep_encoder:
-            # Process each view with its dedicated backbone
-            features = []
-            for view_idx in range(N):
-                if active_views is None or active_views[view_idx]:
-                    # view is active
-                    view_samples = samples[:, view_idx]  # [B, C, H, W]
-                    view_features = self.backbones[view_idx](view_samples)  # [B, C, h, w]
-                    view_features = view_features + self.pos_embed
-                else:
-                    # view is inactive
-                    view_features = torch.zeros((B, self.backbones[0].num_channels, *self.backbones[0].output_size), device=samples.device)
-                features.append(view_features)
-
-            # Stack features from all views
-            features = torch.stack(features, dim=1)  # [B, N, C, h, w]
-
-            # Add spatial position embeddings to each view
-            features = rearrange(features, "b n c h w -> b n h w c")
-
-            # Final rearrangement for perceiver
-            src = rearrange(features, "b n h w c -> b h w (n c)")
-        else:
-            # TODO: implement
-            src = samples
-
-        hs = self.perceiver(
-            data=src,
-            return_embeddings=True,
-            latents=latents,
-            keep_cross_attention=keep_encoder,
-            active_heads=active_views
-        )
-
-        out = {}
-        for i, head in enumerate(self.classification_heads):
-            out[head.detection_object_id] = head(hs)
-
-        # TODO: double check if normilization should be disabled
-        # out['hs_embed'] = hs
-
-        return (
-            out,
-            targets,
-            None,
-            None,  # Memory, is an output from encoder
-            hs
-        )
 
 
 class MLP(nn.Module):
@@ -494,12 +368,12 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
 
     number_of_views = gh * gw
 
-    backbones = nn.ModuleList([build_backbone(args, input_image_view_size=input_image_view_size) for _ in range(number_of_views)])
+    backbone = build_backbone(args, input_image_view_size=input_image_view_size)
 
     num_freq_bands = args.num_freq_bands
     fourier_channels = 2 * ((num_freq_bands * 2) + 1)
 
-    num_channels_from_backbone = backbones[0].num_channels
+    num_channels_from_backbone = backbone.num_channels
 
     gh, gw = args.grid_size
 
@@ -520,14 +394,14 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         latent_dim=args.hidden_dim,  # latent dimension
         cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
         latent_heads=args.nheads,  # number of heads for latent self attention, 8
-        cross_dim_head=num_channels_from_backbone,
+        cross_dim_head=(num_channels + fourier_channels) // args.enc_nheads_cross,
         # number of dimensions per cross attention head
         latent_dim_head=args.hidden_dim // args.nheads,  # number of dimensions per latent self attention head
         num_classes=-1,  # NOT USED. output number of classes.
         attn_dropout=args.dropout,
         ff_dropout=args.dropout,
         weight_tie_layers=False,  # whether to weight tie layers (optional, as indicated in the diagram)
-        fourier_encode_data=False,
+        fourier_encode_data=True,
         # whether to auto-fourier encode the data, using the input_axis given. defaults to True, but can be turned off if you are fourier encoding the data yourself
         self_per_cross_attn=args.self_per_cross_attn,  # number of self attention blocks per cross attention
         final_classifier_head=False  # mean pool and project embeddings to number of classes (num_classes) at the end
@@ -547,4 +421,4 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
             latent_dim=args.hidden_dim
         )])
 
-    return backbones, perceiver, classification_heads
+    return backbone, perceiver, classification_heads

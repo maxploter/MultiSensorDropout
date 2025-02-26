@@ -72,7 +72,6 @@ for num in "${num_objects[@]}"; do
     --grid_size $grid_size \
     --tile_overlap $tile_overlap \
     --num_queries $num_queries \
-    --multi_classification_heads \
     --weight_loss_center_point $weight_loss_center_point \
     --weight_loss_bce $weight_loss_bce
 done

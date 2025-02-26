@@ -257,7 +257,6 @@ def build_criterion(args):
     else:
         losses += ['labels']
 
-
     matcher = build_matcher(args)
     return SetCriterion(
         num_classes,
