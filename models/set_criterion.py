@@ -323,7 +323,6 @@ def build_criterion(args):
             focal_alpha=0.25,
             focal_gamma=2,
             weight_dict={
-                'loss_ce': 1,
                 'loss_bce': args.weight_loss_bce,
                 'loss_center_point': args.weight_loss_center_point
             },
@@ -338,7 +337,6 @@ def build_criterion(args):
             focal_gamma=2,
             weight_dict={
                 'loss_ce': 1,
-                'loss_bce': args.weight_loss_bce,
                 'loss_center_point': args.weight_loss_center_point
             },
             focal_loss=args.focal_loss,

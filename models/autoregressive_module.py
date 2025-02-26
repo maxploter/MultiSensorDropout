@@ -38,7 +38,7 @@ class AutoRegressiveModule(nn.Module):
             for view_id, batch_view in enumerate(batch):
                 if active_views[view_id]:
                     batch_view = self.backbone(batch_view)
-                    batch_view += self.pos_encod[view_id]
+                    batch_view = batch_view + self.pos_encod[view_id]
                     batch_view = batch_view.permute(0, 2, 3, 1)
                 else:
                     # drop the view

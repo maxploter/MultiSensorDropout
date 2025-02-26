@@ -366,8 +366,6 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
 
     gh, gw = args.grid_size
 
-    number_of_views = gh * gw
-
     backbone = build_backbone(args, input_image_view_size=input_image_view_size)
 
     num_freq_bands = args.num_freq_bands
@@ -380,7 +378,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
     cross_heads = gh * gw # Number of tiles is equal to the number of cross heads
     # TODO: args.enc_nheads_cross
 
-    num_channels = num_channels_from_backbone * gh * gw
+    num_channels = backbone.num_channels
 
     perceiver = Perceiver(
         input_channels=num_channels,  # number of channels for each token of the input
@@ -392,7 +390,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         num_latents=args.num_queries,
         # number of latents, or induced set points, or centroids. different papers giving it different names
         latent_dim=args.hidden_dim,  # latent dimension
-        cross_heads=cross_heads,  # number of heads for cross attention. paper said 1
+        cross_heads=args.enc_nheads_cross,  # number of heads for cross attention. paper said 1
         latent_heads=args.nheads,  # number of heads for latent self attention, 8
         cross_dim_head=(num_channels + fourier_channels) // args.enc_nheads_cross,
         # number of dimensions per cross attention head
