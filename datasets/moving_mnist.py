@@ -276,6 +276,7 @@ class MovingMNIST(Dataset):
                  frame_dropout_pattern = None,
                  sequences_path = None, #TODO: REMOVE
                  split_indices=None,
+                 is_test=False,
                  sampler_steps=[], # epochs at which assign coresponding frame dropout probability
                  frame_dropout_probs=[], # absolut frame drop probability values
                  view_dropout_probs=[], # absolut view drop probability values
@@ -297,7 +298,7 @@ class MovingMNIST(Dataset):
 
         self.num_digits = num_digits
         if self.sequences is None:
-          mnist = MNIST(path, download=True)
+          mnist = MNIST(path, download=True, train=not is_test)
           self.mnist_dataset = mnist.data
           self.mnist_targets = mnist.targets
 
