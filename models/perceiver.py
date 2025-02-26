@@ -235,26 +235,28 @@ class Perceiver(nn.Module):
             data,  # b ()
             latents=None,  # (b, num_latents, latent_dim)
             mask=None,
-            return_embeddings=False,
-            keep_cross_attention=True,
+            return_embeddings=True,
     ):
-        b, *axis, _, device, dtype = *data.shape, data.device, data.dtype
-        assert len(axis) == self.input_axis, 'input data must have the right number of axis'
+        b = 1 # we always assume batch is 1
+        if data is not None:
 
-        if self.fourier_encode_data and keep_cross_attention:
-            # calculate fourier encoded positions in the range of [-1, 1], for all axis
+            b, *axis, _, device, dtype = *data.shape, data.device, data.dtype
+            assert len(axis) == self.input_axis, 'input data must have the right number of axis'
 
-            axis_pos = list(map(lambda size: torch.linspace(-1., 1., steps=size, device=device, dtype=dtype), axis))
-            pos = torch.stack(torch.meshgrid(*axis_pos, indexing='ij'), dim=-1)
-            enc_pos = fourier_encode(pos, self.max_freq, self.num_freq_bands)
-            enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
-            enc_pos = repeat(enc_pos, '... -> b ...', b=b)
+            if self.fourier_encode_data:
+                # calculate fourier encoded positions in the range of [-1, 1], for all axis
 
-            data = torch.cat((data, enc_pos), dim=-1)
+                axis_pos = list(map(lambda size: torch.linspace(-1., 1., steps=size, device=device, dtype=dtype), axis))
+                pos = torch.stack(torch.meshgrid(*axis_pos, indexing='ij'), dim=-1)
+                enc_pos = fourier_encode(pos, self.max_freq, self.num_freq_bands)
+                enc_pos = rearrange(enc_pos, '... n d -> ... (n d)')
+                enc_pos = repeat(enc_pos, '... -> b ...', b=b)
 
-        # concat to channels of data and flatten axis
+                data = torch.cat((data, enc_pos), dim=-1)
 
-        data = rearrange(data, 'b ... d -> b (...) d')
+            # concat to channels of data and flatten axis
+
+            data = rearrange(data, 'b ... d -> b (...) d')
 
         if latents is not None:
             x = latents
@@ -265,7 +267,7 @@ class Perceiver(nn.Module):
 
         for cross_attn, cross_ff, self_attns in self.layers:
 
-            if keep_cross_attention:
+            if data is not None:
                 x_cross = cross_attn(x, context=data, mask=mask)
 
                 if mask is not None:
@@ -294,52 +296,6 @@ class Perceiver(nn.Module):
         # to logits
 
         return self.to_logits(x)
-
-
-class PerceiverDetection(nn.Module):
-    def __init__(self, backbone, perceiver, classification_heads, grid_size):
-        super().__init__()
-        self.backbone = backbone
-        self.perceiver = perceiver
-        self.classification_heads = classification_heads
-        # Compatibility with TrackingBaseModel
-        self.num_queries = perceiver.latents.shape[0]
-        self.hidden_dim = perceiver.latents.shape[1]
-        self.overflow_boxes = False
-
-        # Keep only spatial position embeddings
-        feat_h, feat_w = self.backbone.output_size
-        self.pos_embed = nn.Parameter(torch.zeros(1, backbone.num_channels, feat_h, feat_w))
-        nn.init.normal_(self.pos_embed, std=0.02)
-
-    def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True):
-        src = None
-        if keep_encoder: # TODO REMOVE keep encoder
-            samples = self.backbone(samples)
-            # TODO add positional encodings
-            src = samples.permute(0, 2, 3, 1)
-
-        hs = self.perceiver(
-            data=src,
-            return_embeddings=True,
-            latents=latents,
-            keep_cross_attention=keep_encoder,
-        )
-
-        out = {}
-        for i, head in enumerate(self.classification_heads):
-            out[head.detection_object_id] = head(hs)
-
-        # TODO: double check if normilization should be disabled
-        # out['hs_embed'] = hs
-
-        return (
-            out,
-            targets,
-            None,
-            None,  # Memory, is an output from encoder
-            hs
-        )
 
 
 class MLP(nn.Module):

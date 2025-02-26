@@ -1,5 +1,5 @@
+from models.autoregressive_module import build_perceiver_ar_model
 from models.center_point_lstm import SimpleCenterNetWithLSTM
-from models.perceiver_ar import build_perceiver_ar_model
 
 
 def build_model(args, input_image_view_size):
