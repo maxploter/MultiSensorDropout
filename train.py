@@ -228,6 +228,8 @@ def main(args):
             **{f'test_blind_{k}': v for k, v in blind_stats.items()},
             'epoch': epoch,
             'n_parameters': n_parameters,
+            'output_dir': args.output_dir,
+            'resume': args.resume,
         }
 
         if is_main_process():
@@ -325,6 +327,8 @@ def get_wandb_init_config(args):
 
         if args.eval:
             notes += f',eval'
+            notes += f',output_dir:{args.output_dir}'
+            notes += f',resume:{args.resume}'
 
         if args.multi_classification_heads:
             notes += f',multi_classification_heads'
