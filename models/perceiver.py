@@ -297,9 +297,9 @@ class Perceiver(nn.Module):
 
 
 class PerceiverDetection(nn.Module):
-    def __init__(self, backbones, perceiver, classification_heads, grid_size):
+    def __init__(self, backbone, perceiver, classification_heads, grid_size):
         super().__init__()
-        self.backbones = backbones
+        self.backbone = backbone
         self.perceiver = perceiver
         self.classification_heads = classification_heads
         # Compatibility with TrackingBaseModel
@@ -308,38 +308,16 @@ class PerceiverDetection(nn.Module):
         self.overflow_boxes = False
 
         # Keep only spatial position embeddings
-        feat_h, feat_w = self.backbones[0].output_size
-        self.pos_embed = nn.Parameter(torch.zeros(1, backbones[0].num_channels, feat_h, feat_w))
+        feat_h, feat_w = self.backbone.output_size
+        self.pos_embed = nn.Parameter(torch.zeros(1, backbone.num_channels, feat_h, feat_w))
         nn.init.normal_(self.pos_embed, std=0.02)
 
     def forward(self, samples, targets: list = None, latents: Tensor = None, keep_encoder: bool = True, active_views: Tensor = None):
-        B, N, *_ = samples.shape
-
-        if keep_encoder:
-            # Process each view with its dedicated backbone
-            features = []
-            for view_idx in range(N):
-                if active_views is None or active_views[view_idx]:
-                    # view is active
-                    view_samples = samples[:, view_idx]  # [B, C, H, W]
-                    view_features = self.backbones[view_idx](view_samples)  # [B, C, h, w]
-                    view_features = view_features + self.pos_embed
-                else:
-                    # view is inactive
-                    view_features = torch.zeros((B, self.backbones[0].num_channels, *self.backbones[0].output_size), device=samples.device)
-                features.append(view_features)
-
-            # Stack features from all views
-            features = torch.stack(features, dim=1)  # [B, N, C, h, w]
-
-            # Add spatial position embeddings to each view
-            features = rearrange(features, "b n c h w -> b n h w c")
-
-            # Final rearrangement for perceiver
-            src = rearrange(features, "b n h w c -> b h w (n c)")
-        else:
-            # TODO: implement
-            src = samples
+        src = None
+        if keep_encoder: # TODO REMOVE keep encoder
+            samples = self.backbone(samples)
+            # TODO add positional encodings
+            src = samples.permute(0, 2, 3, 1)
 
         hs = self.perceiver(
             data=src,
@@ -435,12 +413,12 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
 
     number_of_views = gh * gw
 
-    backbones = nn.ModuleList([build_backbone(args, input_image_view_size=input_image_view_size) for _ in range(number_of_views)])
+    backbone = build_backbone(args, input_image_view_size=input_image_view_size)
 
     num_freq_bands = args.num_freq_bands
     fourier_channels = 2 * ((num_freq_bands * 2) + 1)
 
-    num_channels_from_backbone = backbones[0].num_channels
+    num_channels_from_backbone = backbone.num_channels
 
     gh, gw = args.grid_size
 
