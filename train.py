@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import json
+import os
 import random
 import time
 from pathlib import Path
@@ -36,7 +37,6 @@ def parse_args():
     parser.add_argument('--backbone', type=str, help='Backbone type')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     parser.add_argument('--eval', action='store_true')
-    parser.add_argument('--focal_loss', action='store_true')
     parser.add_argument('--weight_loss_center_point', type=int, default=5, help='Weight loss center point')
     parser.add_argument('--weight_loss_bce', type=int, default=1, help='Weight loss binary cross entropy')
 
@@ -347,4 +347,5 @@ def get_wandb_init_config(args):
 
 if __name__ == '__main__':
     args = parse_args()
+    args.focal_loss = True
     main(args)
