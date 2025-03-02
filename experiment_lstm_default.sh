@@ -33,7 +33,6 @@ model='lstm'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
 
-num_objects=2
 lstm_hidden_size=64
 img_size=128
 learning_rate=1e-3
@@ -41,7 +40,6 @@ learning_rate=1e-3
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
-    --num_objects) num_objects="$2"; shift ;;
     --lstm_hidden_size) lstm_hidden_size="$2"; shift ;;
     --img_size) img_size="$2"; shift ;;
     --learning_rate) learning_rate="$2"; shift ;;
@@ -60,5 +58,4 @@ python train.py \
     --lstm_hidden_size $lstm_hidden_size \
     --sampler_steps \
     --frame_dropout_probs \
-    --num_objects $num_objects \
     --img_size $img_size

@@ -12,7 +12,7 @@ import yaml
 from torch.utils.data import DataLoader
 
 import wandb
-from datasets import build_dataset
+from dataset import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
 from models.ade_post_processor import PostProcessTrajectory, MultiHeadPostProcessTrajectory
@@ -48,6 +48,7 @@ def parse_args():
 
     # Dataset
     parser.add_argument('--dataset', type=str, default='moving-mnist', help='Dataset name')
+    parser.add_argument('--dataset_path', type=str, default="Max-Ploter/detection-moving-mnist-easy", help='Dataset path')
     parser.add_argument('--num_objects', nargs='+', type=int, default=[2], help='Number of digits on the frame')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers')
     parser.add_argument('--train_dataset_fraction', type=float, default=1.0, help='Train dataset fraction')
@@ -118,22 +119,22 @@ def main(args):
 
     # Dataset and dataloaders
     dataset_train = build_dataset('train', args)
-    dataset_val = build_dataset('val', args)
+    dataset_test = build_dataset('test', args)
 
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
-    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+    sampler_test = torch.utils.data.SequentialSampler(dataset_test)
 
     dataloader_train = DataLoader(dataset_train, sampler=sampler_train, batch_size=args.batch_size,
                                   collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
-    dataloader_val = DataLoader(dataset_val, sampler=sampler_val, batch_size=args.batch_size,
+    dataloader_test = DataLoader(dataset_test, sampler=sampler_test, batch_size=args.batch_size,
                                 collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
 
-    dataloader_val_blind = None
-    dataset_val_blind = None
+    dataloader_test_blind = None
+    dataset_test_blind = None
     if args.frame_dropout_pattern is not None:
-        dataset_val_blind = build_dataset('val', args, frame_dropout_pattern=args.frame_dropout_pattern)
-        sampler_val_blind = torch.utils.data.SequentialSampler(dataset_val_blind)
-        dataloader_val_blind = DataLoader(dataset_val_blind, sampler=sampler_val_blind, batch_size=args.batch_size,
+        dataset_test_blind = build_dataset('test', args, frame_dropout_pattern=args.frame_dropout_pattern)
+        sampler_test_blind = torch.utils.data.SequentialSampler(dataset_test_blind)
+        dataloader_test_blind = DataLoader(dataset_test_blind, sampler=sampler_test_blind, batch_size=args.batch_size,
                                           collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
 
     # Model, criterion, optimizer, and scheduler
@@ -201,19 +202,13 @@ def main(args):
     start_time = time.time()
 
     dataset_train.set_epoch(start_epoch)
-    dataset_val.set_epoch(start_epoch)
+    dataset_test.set_epoch(start_epoch)
 
-    if dataset_val_blind:
-        dataset_val_blind.set_epoch(start_epoch)
+    if dataset_test_blind:
+        dataset_test_blind.set_epoch(start_epoch)
 
     if args.eval:
         epoch = 0
-
-        dataset_test = build_dataset('test', args)
-        sampler_test = torch.utils.data.SequentialSampler(dataset_test)
-        dataloader_test = DataLoader(dataset_test, sampler=sampler_test, batch_size=args.batch_size,
-                                    collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
-        dataset_test.set_epoch(epoch)
 
         test_stats = evaluate(model, dataloader_test, criterion, postprocessors, epoch, device)
         blind_stats = {}
@@ -245,9 +240,9 @@ def main(args):
         blind_stats = {}
         test_stats = {}
         if epoch % args.eval_interval == 0:
-            test_stats = evaluate(model, dataloader_val, criterion, postprocessors, epoch, device)
-            if dataloader_val_blind:
-                blind_stats = evaluate(model, dataloader_val_blind, criterion, postprocessors, epoch, device)
+            test_stats = evaluate(model, dataloader_test, criterion, postprocessors, epoch, device)
+            if dataloader_test_blind:
+                blind_stats = evaluate(model, dataloader_test_blind, criterion, postprocessors, epoch, device)
 
         lr_scheduler.step()
 
@@ -294,9 +289,9 @@ def main(args):
             break
 
         dataset_train.step_epoch()
-        dataset_val.step_epoch()
-        if dataset_val_blind:
-            dataset_val_blind.step_epoch()
+        dataset_test.step_epoch()
+        if dataset_test_blind:
+            dataset_test_blind.step_epoch()
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -312,7 +307,7 @@ def get_wandb_init_config(args):
         result['id'] = args.wandb_id
         result['resume'] = 'must'
     else:
-        notes = f'model:{args.model},num_objects:{args.num_objects}'
+        notes = f'model:{args.model}'
 
         if args.backbone is not None:
             notes += f',backbone:{args.backbone}'
