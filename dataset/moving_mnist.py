@@ -65,13 +65,14 @@ class MovingMNIST(Dataset):
 	def __init__(
 			self,
 			hf_split,
+			train,
 			normalize=True,
 			frame_dropout_pattern=None,
 			grid_size=(1, 1),
 			tile_overlap=0.0,
 			sampler_steps=None,
 			view_dropout_probs=None,
-			dataset_fraction=1
+			dataset_fraction=1,
 	):
 
 		self.hf_split = hf_split
@@ -81,6 +82,10 @@ class MovingMNIST(Dataset):
 		self.dataset_fraction = dataset_fraction
 		self.sampler_steps = sampler_steps
 		self.view_dropout_probs = view_dropout_probs
+		self.train = train
+		self.indices = list(range(len(self.hf_split)))
+		if self.dataset_fraction < 1:
+			self.indices = self.indices[:int(len(self.hf_split) * self.dataset_fraction)]
 
 		# Infer dataset properties from the first sample
 		sample = self.hf_split[0]
@@ -139,11 +144,18 @@ class MovingMNIST(Dataset):
 		print("set epoch: epoch {} period_idx={}".format(epoch, period_idx))
 		self.view_dropout_prob = self.view_dropout_probs[period_idx]
 
+		# Shuffle indices if dataset_fraction < 1
+		if self.dataset_fraction < 1 and self.train:
+			self.indices = list(range(len(self.hf_split)))
+			random.shuffle(self.indices)
+			self.indices = self.indices[:int(len(self.hf_split) * self.dataset_fraction)]
+
 	def __len__(self):
-		return len(self.hf_split)
+		return len(self.indices)
 
 	def __getitem__(self, idx):
-		sample = self.hf_split[idx]
+		sample_idx = self.indices[idx]
+		sample = self.hf_split[sample_idx]
 
 		video_np = sample['video'].get_batch(range(self.num_frames)).asnumpy()
 

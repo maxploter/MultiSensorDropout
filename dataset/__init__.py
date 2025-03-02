@@ -19,6 +19,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 
 	return MovingMNIST(
 		hf_split=hf_dataset,
+		train=split == 'train',
 		frame_dropout_pattern=frame_dropout_pattern,
 		grid_size=args.grid_size,
 		tile_overlap=args.tile_overlap,
