@@ -7,13 +7,9 @@ from torch.utils.data import Dataset
 mmnist_stat = (
 	[
 		0.023283211935179036,
-		0.023702619593195463,
-		0.024256372840591744
 	],
 	[
 		0.13787307035547106,
-		0.13956223821667918,
-		0.1405819223365483
 	]
 )  # mean, std
 
@@ -96,12 +92,12 @@ class MovingMNIST(Dataset):
 		# Infer dataset properties from the first sample
 		sample = self.hf_split[0]
 		video = sample['video']
-		video_frame = video[-1].asnumpy()
-		self.num_frames = len(video)
-		self.img_size = video_frame.shape[0]
+		video_frames = torch.tensor(video)
+		self.num_frames = video_frames.shape[0] #len(video)
+		self.img_size = video_frames.shape[1] #video_frame.shape[0]
 		self.coordinate_norm_const = self.img_size / 2
-		assert video_frame.shape[0] == video_frame.shape[1]
-		self.channels = video_frame.shape[2]
+		assert video_frames.shape[1] == video_frames.shape[2]
+		self.channels = 1 if video_frames.ndim == 3 else video.shape[-1]
 
 		self.num_views = self.grid_size[0] * self.grid_size[1]
 		rows, cols = grid_size
@@ -163,16 +159,11 @@ class MovingMNIST(Dataset):
 		sample_idx = self.indices[idx]
 		sample = self.hf_split[sample_idx]
 
-		video_np = sample['video'].get_batch(range(self.num_frames)).asnumpy()
-
-		video = torch.tensor(video_np).permute(0, 3, 1, 2)  # T, C, H, W
-
-		targets = copy.deepcopy(sample['targets'])
-
+		video = torch.tensor(sample['video']).unsqueeze(1)  # T, C, H, W
 		video = self.batch_tfms(video)
 
 		if self.keep_view_mask is None:
-			view_keep_flags = torch.ones((self.num_frames, self.num_views), dtype=torch.int)
+			view_keep_flags = torch.ones((self.num_frames, self.num_views), dtype=torch.uint8)
 			if self.view_dropout_prob > 0:
 				num_potential_drop = self.num_frames // 2
 				view_probs = torch.rand(num_potential_drop * self.num_views)
@@ -185,15 +176,14 @@ class MovingMNIST(Dataset):
 			view_keep_flags = self.keep_view_mask.int()
 
 		# Process targets
-		for frame_idx, target in enumerate(targets):
-			target['keep_frame'] = torch.tensor(1)
-			target['active_views'] = view_keep_flags[frame_idx]
-			target['labels'] = torch.tensor(target['labels'], dtype=torch.int64)
-
-			if 'center_points' in target and len(target['center_points']) > 0:
-				target['center_points'] = torch.tensor(target['center_points'], dtype=torch.float32) / self.coordinate_norm_const
-			else:
-				target['center_points'] = torch.tensor([])
+		targets = []
+		for i in range(self.num_frames):
+			targets.append({
+				'labels': torch.tensor(sample['labels'][i], dtype=torch.int64),
+				'center_points': torch.tensor(sample['center_points'][i], dtype=torch.float32) / self.coordinate_norm_const,
+				'keep_frame': torch.tensor(1),
+				'active_views': view_keep_flags[i]
+			})
 
 		# Split into tiles
 		tiled_frames = []
