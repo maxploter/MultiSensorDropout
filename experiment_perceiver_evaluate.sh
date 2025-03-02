@@ -34,7 +34,6 @@ timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir=""
 resume=""
 
-num_objects="2"
 grid_size="1 1"
 tile_overlap=0.0
 num_queries=256
@@ -43,7 +42,6 @@ weight_loss_center_point=5
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
-    --num_objects) num_objects="$2"; shift ;;
     --output_dir) output_dir="$2"; shift ;;
     --resume) resume="$2"; shift ;;
     --grid_size) grid_size="$2"; shift ;;
@@ -55,22 +53,15 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-# split string to array
-read -ra num_objects <<< "$num_objects"
-
-for num in "${num_objects[@]}"; do
-  python train.py \
-    --eval \
-    --model $model \
-    --backbone 'cnn' \
-    --output_dir $output_dir \
-    --resume $resume \
-    --num_workers 4 \
-    --frame_dropout_pattern '00001111' \
-    --num_objects $num \
-    --grid_size $grid_size \
-    --tile_overlap $tile_overlap \
-    --num_queries $num_queries \
-    --weight_loss_center_point $weight_loss_center_point
-done
-
+python train.py \
+  --eval \
+  --model $model \
+  --backbone 'cnn' \
+  --output_dir $output_dir \
+  --resume $resume \
+  --num_workers 4 \
+  --frame_dropout_pattern '00000000001111111111' \
+  --grid_size $grid_size \
+  --tile_overlap $tile_overlap \
+  --num_queries $num_queries \
+  --weight_loss_center_point $weight_loss_center_point

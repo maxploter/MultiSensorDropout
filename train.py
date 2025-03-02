@@ -35,7 +35,6 @@ def parse_args():
     parser.add_argument('--patience', type=int, default=5, help='Number of epochs to wait for improvement')
     parser.add_argument('--model', type=str, default='perceiver', help='Model type')
     parser.add_argument('--backbone', type=str, help='Backbone type')
-    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--weight_loss_center_point', type=int, default=5, help='Weight loss center point')
     parser.add_argument('--weight_loss_bce', type=int, default=1, help='Weight loss binary cross entropy')
@@ -43,23 +42,15 @@ def parse_args():
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
 
-    parser.add_argument('--train_val_split_ratio', type=float, default=0.8, help='Train-validation split ratio')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use (e.g., cpu or cuda)')
 
     # Dataset
     parser.add_argument('--dataset', type=str, default='moving-mnist', help='Dataset name')
     parser.add_argument('--dataset_path', type=str, default="Max-Ploter/detection-moving-mnist-easy", help='Dataset path')
-    parser.add_argument('--num_objects', nargs='+', type=int, default=[2], help='Number of digits on the frame')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers')
     parser.add_argument('--train_dataset_fraction', type=float, default=1.0, help='Train dataset fraction')
     parser.add_argument('--test_dataset_fraction', type=float, default=1.0, help='Test dataset fraction')
-    parser.add_argument('--num_frames', type=int, default=8, help='Number of frames')
-    parser.add_argument('--img_size', type=int, default=128, help='Image size')
-    parser.add_argument('--bounce', action='store_true', help='Bounce digits against walls')
-    parser.add_argument('--overlap_free_initial_position', action='store_true', help='Place digits initially without overlap (as best as we could).')
     parser.add_argument('--frame_dropout_pattern', type=str, required=False, help='Frame dropout pattern')
-    parser.add_argument('--frame_dropout_probs', nargs='*', type=float,
-                        default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
     parser.add_argument('--view_dropout_probs', nargs='*', type=float,
                         default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
     parser.add_argument('--sampler_steps', nargs='*', type=int,
@@ -255,7 +246,6 @@ def main(args):
             **{f'test_blind_{k}': v for k, v in blind_stats.items()},
             'epoch': epoch,
             'n_parameters': n_parameters,
-            'frame_dropout_prob': dataset_train.frame_dropout_prob,
             'view_dropout_prob': dataset_train.view_dropout_prob,
         }
 
@@ -311,9 +301,6 @@ def get_wandb_init_config(args):
 
         if args.backbone is not None:
             notes += f',backbone:{args.backbone}'
-
-        if args.frame_dropout_probs is not None and len(args.frame_dropout_probs) > 0:
-            notes += f',frame_dropout_probs:{len(args.frame_dropout_probs)}'
 
         if args.view_dropout_probs is not None and len(args.view_dropout_probs) > 0:
             notes += f',view_dropout_probs:{len(args.view_dropout_probs)}'

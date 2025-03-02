@@ -120,15 +120,16 @@ class MovingMNIST(Dataset):
 			T.Normalize(*mmnist_stat) if normalize else T.Lambda(lambda x: x)
 		])
 
-		self._set_epoch(0)
+		self.set_epoch(0)
 
 	def step_epoch(self):
 		print("Dataset: epoch {} finishes".format(self.current_epoch))
-		self._set_epoch(self.current_epoch + 1)
+		self.set_epoch(self.current_epoch + 1)
 
-	def _set_epoch(self, epoch):
+	def set_epoch(self, epoch):
 		self.current_epoch = epoch
 		if not self.view_dropout_probs:
+			self.view_dropout_prob = 0
 			return
 
 		period_idx = 0
@@ -174,6 +175,8 @@ class MovingMNIST(Dataset):
 			if 'center_points' in target and len(target['center_points']) > 0:
 				n = self.img_size / 2  # center
 				target['center_points'] = torch.tensor(target['center_points'], dtype=torch.float32) / n
+			else:
+				target['center_points'] = torch.tensor([])
 
 		# Split into tiles
 		tiled_frames = []
