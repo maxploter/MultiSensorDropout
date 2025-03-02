@@ -6,11 +6,11 @@ from util.misc import is_multi_head_fn
 
 class AverageDisplacementErrorEvaluator:
 
-    def __init__(self, matcher, img_size):
+    def __init__(self, matcher, coordinate_norm_const):
         self.matcher = matcher  # Matcher for finding the best target for each prediction
         self.ADE = []  # List to store displacement errors
         self.result = None  # Placeholder for accumulated result
-        self.img_size = img_size
+        self.coordinate_norm_const = coordinate_norm_const
         self.final_displacement_error = None
         self.average_displacement_error_sequence_second_half = None
 
@@ -28,10 +28,10 @@ class AverageDisplacementErrorEvaluator:
         # Permute predictions based on matched indices
         idx = self._get_src_permutation_idx(indices)
         src_cps = outputs['pred_center_points'][idx] # Predicted center points
-        src_cps *= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
+        src_cps *= torch.tensor([self.coordinate_norm_const, self.coordinate_norm_const], dtype=torch.float32)
 
         target_cps = torch.cat([t['center_points'][i] for t, (_, i) in zip(targets, indices)], dim=0)  # True center points
-        target_cps *= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
+        target_cps *= torch.tensor([self.coordinate_norm_const, self.coordinate_norm_const], dtype=torch.float32)
 
         displacements = torch.norm(src_cps - target_cps, dim=1).detach().cpu()  # Shape: [N, 1]
 
@@ -79,8 +79,8 @@ class AverageDisplacementErrorEvaluator:
 
 class MultiHeadAverageDisplacementErrorEvaluator(AverageDisplacementErrorEvaluator):
 
-    def __init__(self, matcher, img_size):
-        super().__init__(matcher, img_size)
+    def __init__(self, matcher, coordinate_norm_const):
+        super().__init__(matcher, coordinate_norm_const)
 
 
     def update(self, outputs, targets):
@@ -118,10 +118,10 @@ class MultiHeadAverageDisplacementErrorEvaluator(AverageDisplacementErrorEvaluat
             # Permute predictions based on matched indices
             idx = self._get_src_permutation_idx(indices)
             src_cps = head_outputs['pred_center_points'][idx] # Predicted center points
-            src_cps *= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
+            src_cps *= torch.tensor([self.coordinate_norm_const, self.coordinate_norm_const], dtype=torch.float32)
 
             target_cps = torch.cat([t['center_points'][i] for t, (_, i) in zip(head_targets, indices)], dim=0)  # True center points
-            target_cps *= torch.tensor([self.img_size, self.img_size], dtype=torch.float32)
+            target_cps *= torch.tensor([self.coordinate_norm_const, self.coordinate_norm_const], dtype=torch.float32)
 
             displacements = torch.norm(src_cps - target_cps, dim=1).detach().cpu()  # Shape: [N, 1]
 

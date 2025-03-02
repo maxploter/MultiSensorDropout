@@ -33,7 +33,6 @@ model='perceiver'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
 
-num_objects=2
 self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
 learning_rate=1e-3
@@ -49,7 +48,6 @@ eval_interval=1
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
-    --num_objects) num_objects="$2"; shift ;;
     --self_per_cross_attn) self_per_cross_attn="$2"; shift ;;
     --hidden_dim) hidden_dim="$2"; shift ;;
     --learning_rate) learning_rate="$2"; shift ;;
@@ -78,11 +76,8 @@ python train.py \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
     --sampler_steps \
-    --frame_dropout_probs \
     --view_dropout_probs \
-    --num_objects $num_objects \
     --self_per_cross_attn $self_per_cross_attn \
-    --img_size 128 \
     --grid_size $grid_size \
     --tile_overlap $tile_overlap \
     --num_queries $num_queries \

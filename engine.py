@@ -72,7 +72,6 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
             progress_bar.set_postfix({
                 **{k: metric.compute().item() for k, metric in metric_logger.items()},
                 "lr": optimizer.param_groups[0]["lr"],
-                'frame_dropout_prob': dataloader.dataset.frame_dropout_prob,
                 'view_dropout_prob': dataloader.dataset.view_dropout_prob,
             })
 
@@ -90,12 +89,12 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
         if postprocessors['trajectory'] is MultiHeadPostProcessTrajectory:
             average_displacement_error_evaluator = MultiHeadAverageDisplacementErrorEvaluator(
                 matcher=criterion.matcher,
-                img_size=dataloader.dataset.img_size,
+                coordinate_norm_const=dataloader.dataset.coordinate_norm_const,
             )
         else:
             average_displacement_error_evaluator = AverageDisplacementErrorEvaluator(
                 matcher=criterion.matcher,
-                img_size=dataloader.dataset.img_size,
+                coordinate_norm_const=dataloader.dataset.coordinate_norm_const,
             )
 
     model.eval()
@@ -141,7 +140,6 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
             if i % print_freq == 0 or i == len(dataloader) - 1:
               progress_bar.set_postfix({
                   **{k: metric.compute().item() for k, metric in metric_logger.items()},
-                  'frame_dropout_prob': dataloader.dataset.frame_dropout_prob,
                   'view_dropout_prob': dataloader.dataset.view_dropout_prob,
               })
 
