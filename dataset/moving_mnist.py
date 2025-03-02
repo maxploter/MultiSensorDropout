@@ -93,6 +93,7 @@ class MovingMNIST(Dataset):
 		video_frame = video[-1].asnumpy()
 		self.num_frames = len(video)
 		self.img_size = video_frame.shape[0]
+		self.coordinate_norm_const = self.img_size / 2
 		assert video_frame.shape[0] == video_frame.shape[1]
 		self.channels = video_frame.shape[2]
 
@@ -135,14 +136,13 @@ class MovingMNIST(Dataset):
 		self.current_epoch = epoch
 		if not self.view_dropout_probs:
 			self.view_dropout_prob = 0
-			return
-
-		period_idx = 0
-		for i in range(len(self.sampler_steps)):
-			if epoch >= self.sampler_steps[i]:
-				period_idx = i + 1
-		print("set epoch: epoch {} period_idx={}".format(epoch, period_idx))
-		self.view_dropout_prob = self.view_dropout_probs[period_idx]
+		else:
+			period_idx = 0
+			for i in range(len(self.sampler_steps)):
+				if epoch >= self.sampler_steps[i]:
+					period_idx = i + 1
+			print("set epoch: epoch {} period_idx={}".format(epoch, period_idx))
+			self.view_dropout_prob = self.view_dropout_probs[period_idx]
 
 		# Shuffle indices if dataset_fraction < 1
 		if self.dataset_fraction < 1 and self.train:
@@ -185,8 +185,7 @@ class MovingMNIST(Dataset):
 			target['labels'] = torch.tensor(target['labels'], dtype=torch.int64)
 
 			if 'center_points' in target and len(target['center_points']) > 0:
-				n = self.img_size / 2  # center
-				target['center_points'] = torch.tensor(target['center_points'], dtype=torch.float32) / n
+				target['center_points'] = torch.tensor(target['center_points'], dtype=torch.float32) / self.coordinate_norm_const
 			else:
 				target['center_points'] = torch.tensor([])
 

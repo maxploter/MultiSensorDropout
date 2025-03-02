@@ -342,7 +342,7 @@ class ObjectDetectionHead(nn.Module):
                                See PostProcess for information on how to retrieve the unnormalized bounding box.
         """
         outputs_class = self.class_embed(hs)
-        outputs_coord = self.center_points_embed(hs).sigmoid()
+        outputs_coord = self.center_points_embed(hs).tanh()
         out = {'pred_logits': outputs_class, 'pred_center_points': outputs_coord}
         return out
 

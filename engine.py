@@ -89,12 +89,12 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
         if postprocessors['trajectory'] is MultiHeadPostProcessTrajectory:
             average_displacement_error_evaluator = MultiHeadAverageDisplacementErrorEvaluator(
                 matcher=criterion.matcher,
-                img_size=dataloader.dataset.img_size,
+                coordinate_norm_const=dataloader.dataset.coordinate_norm_const,
             )
         else:
             average_displacement_error_evaluator = AverageDisplacementErrorEvaluator(
                 matcher=criterion.matcher,
-                img_size=dataloader.dataset.img_size,
+                coordinate_norm_const=dataloader.dataset.coordinate_norm_const,
             )
 
     model.eval()
