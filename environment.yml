@@ -9,4 +9,3 @@ dependencies:
   - conda-forge::scipy
   - conda-forge::wandb
   - conda-forge::datasets
-  - conda-forge::decord

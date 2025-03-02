@@ -6,7 +6,7 @@ class BackboneCnn(nn.Module):
         super(BackboneCnn, self).__init__()
 
         self.block1 = nn.Sequential(
-            nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
