@@ -1,8 +1,4 @@
-from types import SimpleNamespace
-
-import numpy as np
 from datasets import load_dataset
-from torchvision.datasets import MNIST
 
 from dataset.moving_mnist import MovingMNIST
 
@@ -12,7 +8,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	assert dataset_name.startswith('moving-mnist')
 
 	# Load Hugging Face dataset split
-	hf_dataset = load_dataset(args.dataset_path, split=split)
+	hf_dataset = load_dataset(args.dataset_path, split=split, keep_in_memory=True)
 
 	# Determine dataset fraction
 	dataset_fraction = args.train_dataset_fraction if split == 'train' else args.test_dataset_fraction

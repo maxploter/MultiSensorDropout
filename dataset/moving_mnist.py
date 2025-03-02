@@ -1,15 +1,21 @@
-from types import SimpleNamespace
-import math
 import random
 import copy
-import numpy as np
 import torch
 import torchvision.transforms as T
-import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
-from datasets import load_dataset
 
-mmnist_stat = ([0.0321, 0.0321, 0.0321], [0.1631, 0.1631, 0.1631])  # mean, std
+mmnist_stat = (
+	[
+		0.023283211935179036,
+		0.023702619593195463,
+		0.024256372840591744
+	],
+	[
+		0.13787307035547106,
+		0.13956223821667918,
+		0.1405819223365483
+	]
+)  # mean, std
 
 
 def split_frame_into_tiles(frame, grid_size, overlap_ratio=0.0):
