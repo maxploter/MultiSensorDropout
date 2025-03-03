@@ -33,6 +33,7 @@ model='perceiver'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir=""
 resume=""
+dataset_path='Max-Ploter/detection-moving-mnist-easy'
 
 grid_size="1 1"
 tile_overlap=0.0
@@ -42,6 +43,7 @@ weight_loss_center_point=5
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
+    --dataset_path) dataset_path="$2"; shift ;;
     --output_dir) output_dir="$2"; shift ;;
     --resume) resume="$2"; shift ;;
     --grid_size) grid_size="$2"; shift ;;
@@ -56,6 +58,7 @@ done
 python train.py \
   --eval \
   --model $model \
+  --dataset_path $dataset_path \
   --backbone 'cnn' \
   --output_dir $output_dir \
   --resume $resume \
