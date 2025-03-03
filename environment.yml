@@ -9,3 +9,5 @@ dependencies:
   - conda-forge::scipy
   - conda-forge::wandb
   - conda-forge::datasets
+  - pip:
+      - detection-moving-mnist==0.0.0

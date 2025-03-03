@@ -47,6 +47,7 @@ def parse_args():
     # Dataset
     parser.add_argument('--dataset', type=str, default='moving-mnist', help='Dataset name')
     parser.add_argument('--dataset_path', type=str, default="Max-Ploter/detection-moving-mnist-easy", help='Dataset path')
+    parser.add_argument('--generate_dataset_runtime', action='store_true')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers')
     parser.add_argument('--train_dataset_fraction', type=float, default=1.0, help='Train dataset fraction')
     parser.add_argument('--test_dataset_fraction', type=float, default=1.0, help='Test dataset fraction')
@@ -322,6 +323,12 @@ def get_wandb_init_config(args):
 
         if args.focal_loss:
             notes += f',focal_loss'
+
+        if args.sequential_sampler:
+            notes += f',sequential_sampler'
+
+        if args.generate_dataset_runtime:
+            notes += f',generate_dataset_runtime'
 
         if args.self_per_cross_attn > 1:
             notes += f',self_per_cross_attn:{args.self_per_cross_attn}'

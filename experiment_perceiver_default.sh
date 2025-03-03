@@ -78,7 +78,7 @@ python train.py \
     --test_dataset_fraction $test_dataset_fraction \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
-    --sequential_sampler \
+    --generate_dataset_runtime \
     --sampler_steps \
     --view_dropout_probs \
     --self_per_cross_attn $self_per_cross_attn \
