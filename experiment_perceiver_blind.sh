@@ -32,6 +32,7 @@ conda activate multi_sensor_dropout
 model='perceiver'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
+dataset_path='Max-Ploter/detection-moving-mnist-easy'
 
 hidden_dim=128 # Perceiver hidden size
 learning_rate=1e-3
@@ -47,6 +48,7 @@ eval_interval=1
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
+    --dataset_path) dataset_path="$2"; shift ;;
     --hidden_dim) hidden_dim="$2"; shift ;;
     --learning_rate) learning_rate="$2"; shift ;;
     --learning_rate_backbone) learning_rate_backbone="$2"; shift ;;
@@ -65,6 +67,7 @@ done
 python train.py \
     --model $model \
     --backbone 'cnn' \
+    --dataset_path $dataset_path \
     --eval_interval $eval_interval \
     --learning_rate $learning_rate \
     --learning_rate_backbone $learning_rate_backbone \
