@@ -74,6 +74,7 @@ python train.py \
     --output_dir $output_dir \
     --train_dataset_fraction $train_dataset_fraction \
     --test_dataset_fraction $test_dataset_fraction \
+    --sequential_sampler \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
     --grid_size $grid_size \
