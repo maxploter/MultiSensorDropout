@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from datasets import load_dataset
 from detection_moving_mnist.mmnist.trajectory import SimpleLinearTrajectory, BouncingTrajectory
 
-from dataset.moving_mnist import MovingMNISTWrapper
+from dataset.moving_mnist import MovingMNISTWrapper, make_mmist_transforms
 from detection_moving_mnist.mmnist.mmnist import MovingMNIST
 
 from dataset.moving_mnist_dynamic import MovingMNISTDynamicAdapter
@@ -50,13 +50,16 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	# Determine dataset fraction
 	dataset_fraction = args.train_dataset_fraction if split == 'train' else args.test_dataset_fraction
 
+	video, _ = dataset[0]
+	img_size = video.shape[2]
+	assert video.shape[2] == video.shape[3]
+
+	transforms, norm_transforms = make_mmist_transforms(split, img_size, args)
+
 	return MovingMNISTWrapper(
 		dataset=dataset,
+		transforms=transforms,
+		norm_transforms=norm_transforms,
 		train=split == 'train',
-		frame_dropout_pattern=frame_dropout_pattern,
-		grid_size=args.grid_size,
-		tile_overlap=args.tile_overlap,
-		sampler_steps=args.sampler_steps,
-		view_dropout_probs=args.view_dropout_probs,
 		dataset_fraction=dataset_fraction
 	)
