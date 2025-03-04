@@ -44,11 +44,13 @@ test_dataset_fraction=1.0
 num_queries=256
 weight_loss_center_point=5
 eval_interval=1
+num_frames=12
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --dataset_path) dataset_path="$2"; shift ;;
+    --num_frames) num_frames="$2"; shift ;;
     --hidden_dim) hidden_dim="$2"; shift ;;
     --learning_rate) learning_rate="$2"; shift ;;
     --learning_rate_backbone) learning_rate_backbone="$2"; shift ;;
@@ -69,6 +71,7 @@ python train.py \
     --backbone 'cnn' \
     --dataset_path $dataset_path \
     --eval_interval $eval_interval \
+    --num_frames $num_frames \
     --learning_rate $learning_rate \
     --learning_rate_backbone $learning_rate_backbone \
     --output_dir $output_dir \

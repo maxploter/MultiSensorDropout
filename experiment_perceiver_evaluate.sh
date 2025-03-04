@@ -39,11 +39,15 @@ grid_size="1 1"
 tile_overlap=0.0
 num_queries=256
 weight_loss_center_point=5
+num_frames=12
+frame_dropout_pattern='000000111111'
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --dataset_path) dataset_path="$2"; shift ;;
+    --num_frames) num_frames="$2"; shift ;;
+    --frame_dropout_pattern) frame_dropout_pattern="$2"; shift ;;
     --output_dir) output_dir="$2"; shift ;;
     --resume) resume="$2"; shift ;;
     --grid_size) grid_size="$2"; shift ;;
@@ -60,10 +64,11 @@ python train.py \
   --model $model \
   --dataset_path $dataset_path \
   --backbone 'cnn' \
+  --num_frames $num_frames \
+  --frame_dropout_pattern $frame_dropout_pattern \
   --output_dir $output_dir \
   --resume $resume \
   --num_workers 4 \
-  --frame_dropout_pattern '00000000001111111111' \
   --grid_size $grid_size \
   --tile_overlap $tile_overlap \
   --num_queries $num_queries \
