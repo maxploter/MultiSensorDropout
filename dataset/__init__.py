@@ -37,7 +37,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 				path='.',
 				affine_params=affine_params,
 				num_digits=CONFIGS['easy']["num_digits"],
-				num_frames=20,
+				num_frames=args.num_frames,
 			),
 			num_of_videos=60_000
 		)
@@ -45,7 +45,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 		print(f"Generating {split} huggingface MovingMNIST dataset...")
 		# Load Hugging Face dataset split
 		hf_dataset = load_dataset(args.dataset_path, split=split)
-		dataset = MovingMNISTHuggingFaceAdapter(hf_dataset)
+		dataset = MovingMNISTHuggingFaceAdapter(hf_dataset, num_frames=args.num_frames)
 
 	# Determine dataset fraction
 	dataset_fraction = args.train_dataset_fraction if split == 'train' else args.test_dataset_fraction
