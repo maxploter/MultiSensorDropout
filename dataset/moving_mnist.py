@@ -171,6 +171,7 @@ class MovingMNISTWrapper(Dataset):
 	def __getitem__(self, idx):
 		sample_idx = self.indices[idx]
 		video, targets = self.dataset[sample_idx]
+		video = self.batch_tfms(video)
 
 		# transformation
 		if self.keep_view_mask is None:
