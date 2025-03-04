@@ -27,6 +27,9 @@ def split_frame_into_tiles(frame, grid_size, overlap_ratio=0.0):
 	_, H, W = frame.shape
 	rows, cols = grid_size
 
+	if rows == 1 and cols == 1:
+		return [frame]
+
 	# Calculate tile dimensions with overlap factor
 	overlap = 1 + overlap_ratio  # e.g., 1.2 for 20% overlap
 	tile_w = int((W // cols) * overlap)
