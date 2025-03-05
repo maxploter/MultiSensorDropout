@@ -32,6 +32,8 @@ conda activate multi_sensor_dropout
 model='perceiver'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
+resume=null
+wandb_id=''
 dataset_path='Max-Ploter/detection-moving-mnist-easy'
 
 self_per_cross_attn=1
@@ -63,12 +65,15 @@ while [[ "$#" -gt 0 ]]; do
     --num_queries) num_queries="$2"; shift ;;
     --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
     --eval_interval) eval_interval="$2"; shift ;;
+    --wandb_id) wandb_id="$2"; shift ;;
+    --output_dir) output_dir="$2"; shift ;;
+    --resume) resume="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
 done
 
-python train.py \
+python_command="python train.py \
     --model $model \
     --backbone 'cnn' \
     --dataset_path $dataset_path \
@@ -88,4 +93,12 @@ python train.py \
     --grid_size $grid_size \
     --tile_overlap $tile_overlap \
     --num_queries $num_queries \
-    --weight_loss_center_point $weight_loss_center_point
+    --weight_loss_center_point $weight_loss_center_point"
+
+# Conditionally add --resume
+if [[ -n "$resume" ]]; then
+    python_command="$python_command --resume $resume --wandb_id $wandb_id"
+fi
+
+# Execute the python command
+eval "$python_command"
