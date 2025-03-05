@@ -14,6 +14,8 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
     model.train()
     metric_logger = defaultdict(lambda: torchmetrics.MeanMetric().to(device))
 
+    add_running_metrics(device, metric_logger)
+
     progress_bar = tqdm(dataloader, desc=f"Epoch {epoch}", leave=True)
 
     print_freq = 50
@@ -55,14 +57,20 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
 
         # Update metric logger with main loss and each component
         metric_logger['loss'].update(loss_value)
+        metric_logger['loss_running'].update(loss_value)
 
         if 'class_error' in loss_dict:
             metric_logger["class_error"].update(loss_dict['class_error'].item())
+            metric_logger["class_error_running"].update(loss_dict['class_error'].item())
 
         for k, v in loss_dict_unscaled.items():
+            if k == 'class_error_unscaled':
+                continue
             metric_logger[k].update(v.item())
         for k, v in loss_dict_scaled.items():
             metric_logger[k].update(v.item())
+            if f'{k}_running' in metric_logger:
+                metric_logger[f'{k}_running'].update(v.item())
 
         for k, v in loss_dict.items():
             if 'binary_precision' in k or 'binary_recall' in k or 'binary_f1' in k:
@@ -81,6 +89,14 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
       metric.reset()
 
     return avg_values
+
+
+def add_running_metrics(device, metric_logger):
+    window = 10
+    metric_logger['loss_running'] = torchmetrics.RunningMean(window=window).to(device)
+    metric_logger['class_error_running'] = torchmetrics.RunningMean(window=window).to(device)
+    metric_logger['loss_center_point_running'] = torchmetrics.RunningMean(window=window).to(device)
+    metric_logger['loss_ce_running'] = torchmetrics.RunningMean(window=window).to(device)
 
 
 def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
@@ -102,6 +118,7 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
     print_freq = 50
 
     metric_logger = defaultdict(lambda: torchmetrics.MeanMetric().to(device))
+    add_running_metrics(device, metric_logger)
 
     # Disabling gradient calculation for evaluation
     with torch.no_grad():
@@ -129,13 +146,20 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
             loss_value = losses_scaled.item()
 
             metric_logger['loss'].update(loss_value)
+            metric_logger['loss_running'].update(loss_value)
+
             if 'class_error' in loss_dict:
-                metric_logger['class_error'].update(loss_dict['class_error'].item())
+                metric_logger["class_error"].update(loss_dict['class_error'].item())
+                metric_logger["class_error_running"].update(loss_dict['class_error'].item())
 
             for k, v in loss_dict_unscaled.items():
-              metric_logger[k].update(v.item())
+                if k == 'class_error_unscaled':
+                    continue
+                metric_logger[k].update(v.item())
             for k, v in loss_dict_scaled.items():
-              metric_logger[k].update(v.item())
+                metric_logger[k].update(v.item())
+                if f'{k}_running' in metric_logger:
+                    metric_logger[f'{k}_running'].update(v.item())
 
             if i % print_freq == 0 or i == len(dataloader) - 1:
               progress_bar.set_postfix({
