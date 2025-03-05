@@ -12,7 +12,7 @@ class MovingMNISTHuggingFaceAdapter:
 	def __getitem__(self, idx):
 		sample = self.hf_split[idx]
 
-		video = torch.tensor(sample['video']).unsqueeze(1)[:self.num_frames]  # T, C, H, W
+		video = torch.tensor(sample['video'], dtype=torch.float32).unsqueeze(1)[:self.num_frames] / 255.0  # T, C, H, W
 
 		targets = []
 		for i in range(self.num_frames):

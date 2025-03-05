@@ -88,7 +88,7 @@ class MovingMNISTWrapper(Dataset):
 		return video, targets
 
 
-def make_mmist_transforms(split, img_size, args):
+def make_mmist_transforms(split, img_size, frame_dropout_pattern, args):
 	norm_transforms = T.Compose([
 		T.ConvertImageDtype(torch.float32),
 		T.Normalize(*mmnist_stat)
@@ -102,7 +102,7 @@ def make_mmist_transforms(split, img_size, args):
 
 	view_dropout = ViewDropoutTransform(
 		sampler_steps=args.sampler_steps,
-		frame_dropout_pattern=args.frame_dropout_pattern,
+		frame_dropout_pattern=frame_dropout_pattern,
 		view_dropout_probs=args.view_dropout_probs,
 		grid_size=args.grid_size,
 	)

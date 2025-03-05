@@ -54,7 +54,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	img_size = video.shape[2]
 	assert video.shape[2] == video.shape[3]
 
-	transforms, norm_transforms = make_mmist_transforms(split, img_size, args)
+	transforms, norm_transforms = make_mmist_transforms(split, img_size, frame_dropout_pattern, args)
 
 	return MovingMNISTWrapper(
 		dataset=dataset,
