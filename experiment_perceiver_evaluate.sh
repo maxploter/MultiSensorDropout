@@ -34,7 +34,7 @@ timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir=""
 resume=""
 dataset_path='Max-Ploter/detection-moving-mnist-easy'
-
+wandb_id=''
 grid_size="1 1"
 tile_overlap=0.0
 num_queries=256
@@ -54,22 +54,48 @@ while [[ "$#" -gt 0 ]]; do
     --tile_overlap) tile_overlap="$2"; shift ;;
     --num_queries) num_queries="$2"; shift ;;
     --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
+    --wandb_id) wandb_id="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
 done
 
-python train.py \
-  --eval \
-  --model $model \
-  --dataset_path $dataset_path \
-  --backbone 'cnn' \
-  --num_frames $num_frames \
-  --frame_dropout_pattern $frame_dropout_pattern \
-  --output_dir $output_dir \
-  --resume $resume \
-  --num_workers 4 \
-  --grid_size $grid_size \
-  --tile_overlap $tile_overlap \
-  --num_queries $num_queries \
-  --weight_loss_center_point $weight_loss_center_point
+evaluate_checkpoint() {
+    local checkpoint=$1
+    echo "Evaluating checkpoint: $checkpoint"
+    python_command="python train.py \
+      --eval \
+      --model $model \
+      --dataset_path $dataset_path \
+      --backbone 'cnn' \
+      --num_frames $num_frames \
+      --frame_dropout_pattern $frame_dropout_pattern \
+      --output_dir $output_dir \
+      --resume $checkpoint \
+      --num_workers 4 \
+      --grid_size $grid_size \
+      --tile_overlap $tile_overlap \
+      --num_queries $num_queries \
+      --weight_loss_center_point $weight_loss_center_point"
+
+    if [[ -n "$wandb_id" ]]; then
+        python_command="$python_command --wandb_id $wandb_id"
+    fi
+
+    eval "$python_command"
+}
+
+if [[ -n "$resume" ]]; then
+    evaluate_checkpoint "$resume"
+else
+    # Find all checkpoint files in output_dir
+    if [[ -d "$output_dir" ]]; then
+        checkpoints=($(ls $output_dir/checkpoint_epoch_*.pth 2>/dev/null))
+        for checkpoint in "${checkpoints[@]}"; do
+            evaluate_checkpoint "$checkpoint"
+        done
+    else
+        echo "Output directory does not exist or is not set correctly."
+        exit 1
+    fi
+fi

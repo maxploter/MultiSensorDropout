@@ -210,21 +210,21 @@ def main(args):
         dataset_test_blind.set_epoch(start_epoch)
 
     if args.eval:
-        epoch = 0
+        start_epoch -= 1 # we resume checkpoint at epoch N, start epoch is N+1
 
-        test_stats = evaluate(model, dataloader_test, criterion, postprocessors, epoch, device)
+        test_stats = evaluate(model, dataloader_test, criterion, postprocessors, start_epoch, device)
         blind_stats = {}
         if args.frame_dropout_pattern is not None:
             dataset_test_blind = build_dataset('test', args, frame_dropout_pattern=args.frame_dropout_pattern)
             sampler_test_blind = torch.utils.data.SequentialSampler(dataset_test_blind)
             dataloader_test_blind = DataLoader(dataset_test_blind, sampler=sampler_test_blind, batch_size=args.batch_size,
                                               collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
-            blind_stats = evaluate(model, dataloader_test_blind, criterion, postprocessors, epoch, device)
+            blind_stats = evaluate(model, dataloader_test_blind, criterion, postprocessors, start_epoch, device)
 
         log_stats = {
             **{f'test_default_{k}': v for k, v in test_stats.items()},
             **{f'test_blind_{k}': v for k, v in blind_stats.items()},
-            'epoch': epoch,
+            'epoch': start_epoch,
             'n_parameters': n_parameters,
             'output_dir': args.output_dir,
             'resume': args.resume,
@@ -232,7 +232,7 @@ def main(args):
 
         if is_main_process():
             print(json.dumps(log_stats, indent=2))
-            wandb.log(log_stats, step=epoch)
+            wandb.log(log_stats, step=start_epoch)
 
         return
 
