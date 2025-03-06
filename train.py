@@ -186,6 +186,8 @@ def main(args):
             start_epoch = checkpoint['epoch'] + 1
             current_patience = checkpoint['current_patience']
             best_val_loss = checkpoint['best_val_loss']
+        else:
+            start_epoch = checkpoint['epoch'] # eval epoch
 
     model = model.to(device)
 
@@ -210,8 +212,6 @@ def main(args):
         dataset_test_blind.set_epoch(start_epoch)
 
     if args.eval:
-        start_epoch -= 1 # we resume checkpoint at epoch N, start epoch is N+1
-
         test_stats = evaluate(model, dataloader_test, criterion, postprocessors, start_epoch, device)
         blind_stats = {}
         if args.frame_dropout_pattern is not None:
