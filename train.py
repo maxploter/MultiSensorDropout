@@ -178,6 +178,11 @@ def main(args):
         if not args.eval:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+
+            if lr_scheduler.step_size != args.scheduler_step_size:
+                print(f'Overwriting scheduler_step_size {args.scheduler_step_size}')
+                lr_scheduler.step_size = args.scheduler_step_size
+
             start_epoch = checkpoint['epoch'] + 1
             current_patience = checkpoint['current_patience']
             best_val_loss = checkpoint['best_val_loss']

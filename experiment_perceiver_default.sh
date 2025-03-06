@@ -48,10 +48,13 @@ num_queries=256
 weight_loss_center_point=5
 eval_interval=1
 num_frames=12
+scheduler_step_size=12
+epochs=18
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
+    --epochs) epochs="$2"; shift ;;
     --dataset_path) dataset_path="$2"; shift ;;
     --num_frames) num_frames="$2"; shift ;;
     --self_per_cross_attn) self_per_cross_attn="$2"; shift ;;
@@ -68,6 +71,7 @@ while [[ "$#" -gt 0 ]]; do
     --wandb_id) wandb_id="$2"; shift ;;
     --output_dir) output_dir="$2"; shift ;;
     --resume) resume="$2"; shift ;;
+    --scheduler_step_size) scheduler_step_size="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -77,6 +81,7 @@ python_command="python train.py \
     --model $model \
     --backbone 'cnn' \
     --dataset_path $dataset_path \
+    --epochs $epochs \
     --eval_interval $eval_interval \
     --num_frames $num_frames \
     --learning_rate $learning_rate \
@@ -93,6 +98,7 @@ python_command="python train.py \
     --grid_size $grid_size \
     --tile_overlap $tile_overlap \
     --num_queries $num_queries \
+    --scheduler_step_size $scheduler_step_size \
     --weight_loss_center_point $weight_loss_center_point"
 
 # Conditionally add --resume
