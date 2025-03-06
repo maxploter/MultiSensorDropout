@@ -62,7 +62,8 @@ done
 
 evaluate_checkpoint() {
     local checkpoint=$1
-    echo "Evaluating checkpoint: $checkpoint"
+    local checkpoint_file=$(basename "$checkpoint")
+    echo "Evaluating checkpoint: $checkpoint_file"
     python_command="python train.py \
       --eval \
       --model $model \
@@ -71,7 +72,7 @@ evaluate_checkpoint() {
       --num_frames $num_frames \
       --frame_dropout_pattern $frame_dropout_pattern \
       --output_dir $output_dir \
-      --resume $checkpoint \
+      --resume $checkpoint_file \
       --num_workers 4 \
       --grid_size $grid_size \
       --tile_overlap $tile_overlap \
