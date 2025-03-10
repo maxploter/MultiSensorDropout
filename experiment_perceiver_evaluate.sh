@@ -73,6 +73,8 @@ evaluate_checkpoint() {
       --backbone 'cnn' \
       --num_frames $num_frames \
       --frame_dropout_pattern $frame_dropout_pattern \
+      --view_dropout_probs \
+      --sampler_steps \
       --output_dir $output_dir \
       --resume $checkpoint_file \
       --num_workers 4 \
