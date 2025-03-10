@@ -41,6 +41,7 @@ num_queries=256
 weight_loss_center_point=5
 num_frames=12
 frame_dropout_pattern='000000111111'
+shuffle_views=''
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -55,6 +56,7 @@ while [[ "$#" -gt 0 ]]; do
     --num_queries) num_queries="$2"; shift ;;
     --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
     --wandb_id) wandb_id="$2"; shift ;;
+    --shuffle_views) shuffle_views="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -81,6 +83,10 @@ evaluate_checkpoint() {
 
     if [[ -n "$wandb_id" ]]; then
         python_command="$python_command --wandb_id $wandb_id"
+    fi
+
+    if [[ -n "$shuffle_views" ]]; then
+        python_command="$python_command --shuffle_views"
     fi
 
     eval "$python_command"

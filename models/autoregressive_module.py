@@ -10,6 +10,7 @@ class AutoRegressiveModule(nn.Module):
                  recurrent_module,
                  detection_head,
                  number_of_views,
+                 shuffle_views=False,
                  ):
         super().__init__()
 
@@ -20,6 +21,7 @@ class AutoRegressiveModule(nn.Module):
         feat_h, feat_w = self.backbone.output_size
         self.pos_encod = nn.Parameter(torch.zeros(number_of_views, backbone.num_channels, feat_h, feat_w))
         nn.init.normal_(self.pos_encod, std=0.02)
+        self.shuffle_views = shuffle_views
 
     def forward(self, samples, targets: list = None):
 
@@ -34,6 +36,11 @@ class AutoRegressiveModule(nn.Module):
 
         for timestamp, batch in enumerate(src):
             active_views = targets[timestamp]['active_views'].bool()
+
+            if self.shuffle_views:
+                permutations = torch.randperm(batch.size(0))
+                batch = batch[permutations]
+                active_views = active_views[permutations]
 
             for view_id, batch_view in enumerate(batch):
                 if active_views[view_id]:
@@ -68,6 +75,7 @@ def build_perceiver_ar_model(args, num_classes, input_image_view_size):
         recurrent_module=perceiver,
         detection_head=detection_head,
         number_of_views=args.grid_size[0] * args.grid_size[1],
+        shuffle_views=args.shuffle_views
     )
 
     return model
