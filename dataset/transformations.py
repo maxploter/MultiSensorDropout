@@ -75,8 +75,8 @@ class TilingTransform:
 
 class ViewDropoutTransform:
 	def __init__(self, sampler_steps=None, frame_dropout_pattern=None, view_dropout_probs=None, grid_size=None):
-		self.view_dropout_probs = view_dropout_probs
-		self.sampler_steps = sampler_steps
+		self.view_dropout_probs = view_dropout_probs if not frame_dropout_pattern else None
+		self.sampler_steps = sampler_steps if not frame_dropout_pattern else None
 		self.grid_size = grid_size
 
 		if self.sampler_steps and frame_dropout_pattern is None:
