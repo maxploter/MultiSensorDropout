@@ -50,6 +50,7 @@ eval_interval=1
 num_frames=12
 scheduler_step_size=12
 epochs=18
+shuffle_views=''
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -72,6 +73,7 @@ while [[ "$#" -gt 0 ]]; do
     --output_dir) output_dir="$2"; shift ;;
     --resume) resume="$2"; shift ;;
     --scheduler_step_size) scheduler_step_size="$2"; shift ;;
+    --shuffle_views) shuffle_views="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -104,6 +106,10 @@ python_command="python train.py \
 # Conditionally add --resume
 if [[ -n "$resume" ]]; then
     python_command="$python_command --resume $resume --wandb_id $wandb_id"
+fi
+
+if [[ -n "$shuffle_views" ]]; then
+    python_command="$python_command --shuffle_views"
 fi
 
 # Execute the python command
