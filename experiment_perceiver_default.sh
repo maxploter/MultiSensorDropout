@@ -32,7 +32,7 @@ conda activate multi_sensor_dropout
 model='perceiver'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir="not_tracked_dir/output_${model}_${timestamp}"
-resume=null
+resume=''
 wandb_id=''
 dataset_path='Max-Ploter/detection-moving-mnist-easy'
 
