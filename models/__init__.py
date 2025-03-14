@@ -10,7 +10,12 @@ def build_model(args, input_image_view_size):
 
 	if args.model == 'lstm':
 		backbone = build_backbone(args, input_image_view_size=input_image_view_size)
-		recurrent_module = None
+		recurrent_module = CenterPointLSTM(
+			num_latents=args.num_queries,
+			latent_dim=args.hidden_dim,
+			feature_channels=backbone.num_channels,
+			feature_size=backbone.output_size
+		)
 		detection_head = ObjectDetectionHead(
 			num_classes=num_classes,
 			latent_dim=args.hidden_dim
