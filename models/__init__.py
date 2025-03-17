@@ -1,12 +1,36 @@
-from models.autoregressive_module import build_perceiver_ar_model
-from models.center_point_lstm import SimpleCenterNetWithLSTM
+from models.autoregressive_module import build_perceiver_ar_model, AutoRegressiveModule
+from models.backbone import build_backbone
+from models.center_point_lstm import CenterPointLSTM
+from models.perceiver import build_model_perceiver, ObjectDetectionHead
 
 
 def build_model(args, input_image_view_size):
-    assert 'moving-mnist' in args.dataset.lower()
-    num_classes = 10
+	assert 'moving-mnist' in args.dataset.lower()
+	num_classes = 10
 
-    if args.model == 'lstm':
-        return SimpleCenterNetWithLSTM(num_classes=num_classes, lstm_hidden_size=args.lstm_hidden_size)
-    elif args.model == 'perceiver':
-        return build_perceiver_ar_model(args, num_classes=num_classes, input_image_view_size=input_image_view_size)
+	if args.model == 'lstm':
+		backbone = build_backbone(args, input_image_view_size=input_image_view_size)
+		recurrent_module = CenterPointLSTM(
+			num_latents=args.num_queries,
+			latent_dim=args.hidden_dim,
+			feature_channels=backbone.num_channels,
+			feature_size=backbone.output_size
+		)
+		detection_head = ObjectDetectionHead(
+			num_classes=num_classes,
+			latent_dim=args.hidden_dim
+		)
+	elif args.model == 'perceiver':
+		backbone, recurrent_module, detection_head = build_model_perceiver(
+			args, num_classes=num_classes, input_image_view_size=input_image_view_size)
+	else:
+		raise NotImplementedError(f"Model {args.model} not implemented.")
+
+	model = AutoRegressiveModule(
+		backbone=backbone,
+		recurrent_module=recurrent_module,
+		detection_head=detection_head,
+		number_of_views=args.grid_size[0] * args.grid_size[1],
+		shuffle_views=args.shuffle_views
+	)
+	return model

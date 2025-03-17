@@ -55,6 +55,7 @@ shuffle_views=''
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
+    --model) model="$2"; shift ;;
     --epochs) epochs="$2"; shift ;;
     --dataset_path) dataset_path="$2"; shift ;;
     --num_frames) num_frames="$2"; shift ;;

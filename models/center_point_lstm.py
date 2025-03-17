@@ -2,80 +2,54 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-class SimpleCenterNetWithLSTM(nn.Module):
-    def __init__(self, num_classes=10, lstm_hidden_size=64, img_size=128):
-        super(SimpleCenterNetWithLSTM, self).__init__()
-        self.num_classes = num_classes + 1 # Account for background class
-        self.lstm_hidden_size = lstm_hidden_size
-        self.img_size = img_size
-
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
-
-        # ConvLSTM layer
-        # self.convlstm = ConvLSTM(
-        #     input_dim=64,
-        #     hidden_dim=lstm_hidden_size,
-        #     kernel_size=(3,3),
-        #     num_layers=1
-        # )
-        self.fc_temporal = nn.Linear(64, lstm_hidden_size)  # Predicts (x, y) for each object
-
-        # Output layers for center points and class scores
-        self.fc_center = nn.Linear(lstm_hidden_size, 2)  # Predicts (x, y) for each object
-        self.fc_class = nn.Linear(lstm_hidden_size, self.num_classes)  # Predicts class scores for each object
-
-    def forward(self, samples, targets):
-
-        samples = samples.permute(1, 0, 2, 3, 4)  # change dimension order from BT___ to TB___
-
-        out_logits = []
-        out_center_points = []
-
-        # Temporal feature extraction
-        temporal_features = []
-
-        targets = targets[0] # We have an assumption that batch size is 1
-
-        for timestamp, batch in enumerate(samples):
-            keep_frame = targets[timestamp]['keep_frame'].bool().item()
-
-            if keep_frame:
-                # Forward pass through conv layers
-                x = F.relu(self.conv1(batch))
-                x = F.relu(self.conv2(x))
-                x = F.relu(self.conv3(x))
-            else:
-                x = torch.zeros(1, 64, self.img_size//4, self.img_size//4).to(samples.device)
-
-            temporal_features.append(x)
-
-        # Stack temporal features
-        temporal_features = torch.stack(temporal_features, dim=0)  # TBCHW
-        #lstm_out_list, _ = self.convlstm(temporal_features) # List of layers outputs
-
-        # lstm_out = lstm_out_list[0]  # BTCHW
-        lstm_out = temporal_features  # BTCHW
+from models.conv_lstm import ConvLSTMCell
 
 
-        for t in range(lstm_out.size(1)):
-            x = lstm_out[:, t]  # BCHW
+class CenterPointLSTM(nn.Module):
+	def __init__(self, num_latents, latent_dim, feature_channels, feature_size):
+		super().__init__()
+		self.num_latents = num_latents
+		self.latent_dim = latent_dim
+		self.feature_size = feature_size  # (H, W) of backbone features
 
-            B, C, H, W = x.shape
-            x = x.view(B, C, H * W)  # B,C,H*W
-            x = x.permute(0, 2, 1)  # B,H*W,C
+		# ConvLSTM components
+		self.conv_lstm_cell = ConvLSTMCell(
+			input_dim=feature_channels,
+			hidden_dim=latent_dim,
+			kernel_size=(3, 3),
+			bias=True
+		)
 
-            x = F.relu(self.fc_temporal(x))
+		# Learnable initial hidden/cell states
+		self.init_h = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
+		self.init_c = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
 
-            class_output = self.fc_class(x)  # B,H*W,num_classes
-            center_output = torch.sigmoid(self.fc_center(x))  # B,H*W,2
+	def forward(self, data, latents=None):
+		if data is not None:
+			B, H, W, C = data.shape
+			data = data.permute(0, 3, 1, 2)  # [B, C, H, W]
 
-            out_logits.append(class_output) # [BQC]
-            out_center_points.append(center_output)
+			# Initialize states
+			if latents is None:
+				h = self.init_h.expand(B, -1, -1, -1)
+				c = self.init_c.expand(B, -1, -1, -1)
+			else:
+				h, c = latents
 
-        return {
-            'pred_logits': torch.cat(out_logits), #TQC
-            'pred_center_points': torch.cat(out_center_points) #TQ2
-        }, targets
+			# Update ConvLSTM states
+			# (b, hidden_dim, H, W)
+			h_next, c_next = self.conv_lstm_cell(data, (h, c))
+
+			# Generate object queries from hidden state
+			queries = h_next.clone()  # [B, latent_dim, H, W]
+			queries = queries.permute(0, 2, 3, 1)  # [B, H, W, latent_dim]
+			queries = queries.reshape(B, H * W, self.latent_dim)  # [B, num_latents, H*W, latent_dim]
+
+			return queries, (h_next, c_next)
+		else:
+			# No data - return previous states or initial states
+			if latents is None:
+				B = 1  # Default batch size when no data
+				return (self.init_h.expand(B, -1, -1, -1),
+				        self.init_c.expand(B, -1, -1, -1))
+			return latents

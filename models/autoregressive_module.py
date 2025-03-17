@@ -57,7 +57,14 @@ class AutoRegressiveModule(nn.Module):
                     latents=hs,
                 )
 
-            out = self.detection_head(hs)
+                #TODO: improve
+                if isinstance(hs, tuple):
+                    q = hs[0]
+                    hs = hs[1]
+                else:
+                    q = hs
+
+            out = self.detection_head(q)
 
             result['pred_logits'].extend(out['pred_logits']) # [QC]
             result['pred_center_points'].extend(out['pred_center_points'])
