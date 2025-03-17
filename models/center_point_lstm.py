@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.conv_lstm import ConvLSTMCell
+from models.perceiver import GEGLU
 
 
 class CenterPointLSTM(nn.Module):
@@ -24,6 +25,14 @@ class CenterPointLSTM(nn.Module):
 		self.init_h = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
 		self.init_c = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
 
+		# Transformer-style feedforward network with GELU activation
+		self.ffn = nn.Sequential(
+			nn.LayerNorm(latent_dim),
+			nn.Linear(latent_dim, latent_dim * 4 * 2),
+			GEGLU(),
+			nn.Linear(latent_dim * 4, latent_dim),
+		)
+
 	def forward(self, data, latents=None):
 		if data is not None:
 			B, H, W, C = data.shape
@@ -41,15 +50,17 @@ class CenterPointLSTM(nn.Module):
 			h_next, c_next = self.conv_lstm_cell(data, (h, c))
 
 			# Generate object queries from hidden state
-			queries = h_next.clone()  # [B, latent_dim, H, W]
-			queries = queries.permute(0, 2, 3, 1)  # [B, H, W, latent_dim]
-			queries = queries.reshape(B, H * W, self.latent_dim)  # [B, num_latents, H*W, latent_dim]
-
-			return queries, (h_next, c_next)
+			h = h_next + h
 		else:
-			# No data - return previous states or initial states
-			if latents is None:
-				B = 1  # Default batch size when no data
-				return (self.init_h.expand(B, -1, -1, -1),
-				        self.init_c.expand(B, -1, -1, -1))
-			return latents
+			# No data, just propagate latents
+			h, c_next = latents
+			B, _, H, W = h.shape
+
+		h = h.permute(0, 2, 3, 1)  # [B, H, W, latent_dim]
+
+		h = self.ffn(h) + h
+
+		h_next = h.permute(0, 3, 1, 2)  # [B, latent_dim, H, W]
+
+		h = h.reshape(B, H * W, self.latent_dim)  # [B, num_latents, H*W, latent_dim]
+		return h, (h_next, c_next)
