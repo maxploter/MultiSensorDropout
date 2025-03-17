@@ -20,9 +20,6 @@ class CenterPointLSTM(nn.Module):
 			bias=True
 		)
 
-		# Projection from hidden state to object queries
-		self.query_conv = nn.Conv2d(latent_dim, num_latents * latent_dim, kernel_size=1)
-
 		# Learnable initial hidden/cell states
 		self.init_h = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
 		self.init_c = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
@@ -40,12 +37,13 @@ class CenterPointLSTM(nn.Module):
 				h, c = latents
 
 			# Update ConvLSTM states
+			# (b, hidden_dim, H, W)
 			h_next, c_next = self.conv_lstm_cell(data, (h, c))
 
 			# Generate object queries from hidden state
-			queries = self.query_conv(h_next)  # [B, num_latents*latent_dim, H, W]
-			queries = queries.view(B, self.num_latents, self.latent_dim, H, W)
-			queries = queries.mean(dim=[3, 4])  # [B, num_latents, latent_dim]
+			queries = h_next.clone()  # [B, latent_dim, H, W]
+			queries = queries.permute(0, 2, 3, 1)  # [B, H, W, latent_dim]
+			queries = queries.reshape(B, H * W, self.latent_dim)  # [B, num_latents, H*W, latent_dim]
 
 			return queries, (h_next, c_next)
 		else:
