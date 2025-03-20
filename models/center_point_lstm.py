@@ -15,14 +15,16 @@ class CenterPointLSTM(nn.Module):
 		# ConvLSTM components
 		self.conv_lstm_cell = ConvLSTMCell(
 			input_dim=feature_channels,
-			hidden_dim=latent_dim,
+			hidden_dim=num_latents,
 			kernel_size=(3, 3),
 			bias=True
 		)
 
+		self.query_linear = nn.Linear(feature_size[0] * feature_size[1], latent_dim)
+
 		# Learnable initial hidden/cell states
-		self.init_h = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
-		self.init_c = nn.Parameter(torch.randn(1, latent_dim, feature_size[0], feature_size[1]))
+		self.init_h = nn.Parameter(torch.randn(1, num_latents, feature_size[0], feature_size[1]))
+		self.init_c = nn.Parameter(torch.randn(1, num_latents, feature_size[0], feature_size[1]))
 
 	def forward(self, data, latents=None):
 		if data is not None:
@@ -37,13 +39,11 @@ class CenterPointLSTM(nn.Module):
 				h, c = latents
 
 			# Update ConvLSTM states
-			# (b, hidden_dim, H, W)
 			h_next, c_next = self.conv_lstm_cell(data, (h, c))
 
 			# Generate object queries from hidden state
-			queries = h_next.clone()  # [B, latent_dim, H, W]
-			queries = queries.permute(0, 2, 3, 1)  # [B, H, W, latent_dim]
-			queries = queries.reshape(B, H * W, self.latent_dim)  # [B, num_latents, H*W, latent_dim]
+			queries = h_next.reshape(B, self.num_latents, H * W)  # [B, num_latents, H * W]
+			queries = self.query_linear(queries)  # [B, num_latents, latent_dim]
 
 			return queries, (h_next, c_next)
 		else:

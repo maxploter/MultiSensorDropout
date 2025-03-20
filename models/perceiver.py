@@ -149,7 +149,8 @@ class Perceiver(nn.Module):
             weight_tie_layers=False,
             fourier_encode_data=True,
             self_per_cross_attn=1,
-            final_classifier_head=True
+            final_classifier_head=True,
+            num_sensors=1,
     ):
         """The shape of the final attention mechanism will be:
         depth * (cross attention -> self_per_cross_attn * self attention)
@@ -178,6 +179,7 @@ class Perceiver(nn.Module):
               if you are fourier encoding the data yourself.
           self_per_cross_attn: Number of self attention blocks per cross attn.
           final_classifier_head: mean pool and project embeddings to number of classes (num_classes) at the end
+          num_sensors: number of sensors, creates a separate cross attention module for each sensor
         """
         for param_name, param_value in locals().items():
             if param_name != 'self':
@@ -186,6 +188,7 @@ class Perceiver(nn.Module):
         self.input_axis = input_axis
         self.max_freq = max_freq
         self.num_freq_bands = num_freq_bands
+        self.num_sensors = num_sensors
 
         self.fourier_encode_data = fourier_encode_data
         fourier_channels = (input_axis * ((num_freq_bands * 2) + 1)) if fourier_encode_data else 0
@@ -218,11 +221,21 @@ class Perceiver(nn.Module):
                     get_latent_ff(**cache_args, key=block_ind)
                 ]))
 
-            self.layers.append(nn.ModuleList([
-                get_cross_attn(**cache_args),
-                get_cross_ff(**cache_args),
-                self_attns
-            ]))
+            sensor_modules = nn.ModuleList([])
+
+            for _ in range(self.num_sensors):
+                assert not weight_tie_layers, "Weight tying not supported for sensor modules"
+                sensor_modules.append(nn.ModuleList([
+                    get_cross_attn(**cache_args),
+                    get_cross_ff(**cache_args),
+                    self_attns
+                ]))
+
+            # Assertion to ensure all sensor_modules reference the same self_attns object
+            assert all(sensor_module[2] is self_attns for sensor_module in
+                       sensor_modules), "self_attns reference is not the same"
+
+            self.layers.append(sensor_modules)
 
         self.to_logits = nn.Sequential(
             Reduce('b n d -> b d', 'mean'),
@@ -233,6 +246,7 @@ class Perceiver(nn.Module):
     def forward(
             self,
             data,  # b ()
+            sensor_id,
             latents=None,  # (b, num_latents, latent_dim)
             mask=None,
             return_embeddings=True,
@@ -265,7 +279,9 @@ class Perceiver(nn.Module):
 
         # layers
 
-        for cross_attn, cross_ff, self_attns in self.layers:
+        for sensor_modules in self.layers:
+            selected_sensor_module = sensor_modules[sensor_id]
+            cross_attn, cross_ff, self_attns = selected_sensor_module
 
             if data is not None:
                 x_cross = cross_attn(x, context=data, mask=mask)
@@ -375,8 +391,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
 
     gh, gw = args.grid_size
 
-    cross_heads = gh * gw # Number of tiles is equal to the number of cross heads
-    # TODO: args.enc_nheads_cross
+    num_sensors = gh * gw
 
     num_channels = backbone.num_channels
 
@@ -402,7 +417,8 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         fourier_encode_data=True,
         # whether to auto-fourier encode the data, using the input_axis given. defaults to True, but can be turned off if you are fourier encoding the data yourself
         self_per_cross_attn=args.self_per_cross_attn,  # number of self attention blocks per cross attention
-        final_classifier_head=False  # mean pool and project embeddings to number of classes (num_classes) at the end
+        final_classifier_head=False,  # mean pool and project embeddings to number of classes (num_classes) at the end
+        num_sensors=num_sensors
     )
 
     if hasattr(args, 'multi_classification_heads') and args.multi_classification_heads:
