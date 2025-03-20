@@ -54,6 +54,7 @@ class AutoRegressiveModule(nn.Module):
 
                 hs = self.recurrent_module(
                     data=batch_view,
+                    sensor_id=permutations[view_id],
                     latents=hs,
                 )
 
