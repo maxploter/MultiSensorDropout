@@ -9,12 +9,15 @@ def build_model(args, input_image_view_size):
 	num_classes = 10
 
 	if args.model == 'lstm':
+		gh, gw = args.grid_size
+		num_sensors = gh * gw
 		backbone = build_backbone(args, input_image_view_size=input_image_view_size)
 		recurrent_module = CenterPointLSTM(
 			num_latents=args.num_queries,
 			latent_dim=args.hidden_dim,
 			feature_channels=backbone.num_channels,
-			feature_size=backbone.output_size
+			feature_size=backbone.output_size,
+			num_sensors=num_sensors
 		)
 		detection_head = ObjectDetectionHead(
 			num_classes=num_classes,

@@ -18,9 +18,9 @@ class AutoRegressiveModule(nn.Module):
         self.recurrent_module = recurrent_module
         self.detection_head = detection_head
 
-        feat_h, feat_w = self.backbone.output_size
-        self.pos_encod = nn.Parameter(torch.zeros(number_of_views, backbone.num_channels, feat_h, feat_w))
-        nn.init.normal_(self.pos_encod, std=0.02)
+        # feat_h, feat_w = self.backbone.output_size
+        # self.pos_encod = nn.Parameter(torch.zeros(number_of_views, backbone.num_channels, feat_h, feat_w))
+        # nn.init.normal_(self.pos_encod, std=0.02)
         self.shuffle_views = shuffle_views
 
     def forward(self, samples, targets: list = None):
@@ -46,8 +46,8 @@ class AutoRegressiveModule(nn.Module):
             for view_id, batch_view in enumerate(batch):
                 if active_views[view_id]:
                     batch_view = self.backbone(batch_view)
-                    batch_view = batch_view + self.pos_encod[permutations[view_id]]
-                    batch_view = batch_view.permute(0, 2, 3, 1)
+                    # batch_view = batch_view + self.pos_encod[permutations[view_id]] #TODO: check if this is still needed
+                    batch_view = batch_view.permute(0, 2, 3, 1) # [B, H, W, C]
                 else:
                     # drop the view
                     batch_view = None
