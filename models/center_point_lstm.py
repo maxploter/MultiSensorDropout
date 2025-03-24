@@ -1,6 +1,48 @@
+from dataclasses import dataclass
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+@dataclass
+class Latents:
+	"""Args:
+	    sensors_h: (num_sensors, B, hidden_size)
+	    output: (num_sensors, B, H*W, C)
+	"""
+	sensors_h: torch.Tensor  # Sensor, B, Vector
+	sensors_c: torch.Tensor  # Sensor, B, Vector
+	output: torch.Tensor  # Sensor, B, H*W, C
+
+	def detach(self):
+		"""Detach all states for BPTT"""
+		return Latents(
+			self.sensors_h.detach(),
+			self.sensors_c.detach(),
+			self.output.detach(),
+		)
+
+	def update(self, sensor_id, sensor_h, sensor_c, new_output):
+		# Clone tensors to avoid in-place operations
+		sensors_h_new = self.sensors_h.clone()
+		sensors_c_new = self.sensors_c.clone()
+		output_new = self.output.clone()
+
+		# Update specific sensor's data directly
+		sensors_h_new[sensor_id] = sensor_h
+		sensors_c_new[sensor_id] = sensor_c
+		output_new[sensor_id] = new_output
+
+		return Latents(
+			sensors_h=sensors_h_new,
+			sensors_c=sensors_c_new,
+			output=output_new,
+		)
+
+	def get_sensor_states(self, sensor_id):
+		"""Returns (h, c) for specified sensor_id"""
+		return self.sensors_h[sensor_id], self.sensors_c[sensor_id]
 
 class CenterPointLSTM(nn.Module):
 	def __init__(self, num_latents, latent_dim, feature_channels, feature_size, num_sensors):
@@ -9,69 +51,63 @@ class CenterPointLSTM(nn.Module):
 		self.latent_dim = latent_dim
 		self.feature_size = feature_size  # (H, W) of backbone features
 
-		input_feature_vector = feature_size[0] * feature_size[1] * feature_channels
+		self.projection = nn.Linear(feature_channels, feature_channels // 2)
 
-		self.lstm_hidden_size_1 = feature_size[0] * feature_size[1] * feature_channels // 4
+		input_feature_vector = feature_size[0] * feature_size[1] * feature_channels // 2
+
+		self.lstm_hidden_size_1 = feature_size[0] * feature_size[1] * feature_channels // 8
 
 		# ConvLSTM components
 		self.sensor_lstm_cells = nn.ModuleList([
-			nn.LSTM(input_size=input_feature_vector, hidden_size=self.lstm_hidden_size_1,
-			        batch_first=True)
+			nn.LSTMCell(input_size=input_feature_vector,
+			            hidden_size=self.lstm_hidden_size_1,
+			            )
 			for _ in range(num_sensors)
 		])
 
-		self.lstm_hidden_size_2 = feature_size[0] * feature_size[1] * self.latent_dim
+		# Learnable initial hidden/cell states
+		self.init_sensor_h = nn.Parameter(torch.randn(num_sensors, 1, self.lstm_hidden_size_1), requires_grad=True)
+		self.init_sensor_c = nn.Parameter(torch.randn(num_sensors, 1, self.lstm_hidden_size_1), requires_grad=True)
+		self.latents = nn.Parameter(torch.randn(num_sensors, 1, feature_size[0] * feature_size[1], feature_channels),
+		                            requires_grad=True)  # S, B, H * W, C
 
-		self.state_lstm = nn.LSTM(
-			input_size=self.lstm_hidden_size_1,
-			hidden_size=self.lstm_hidden_size_2,
-			batch_first=True
+		self.mlp = nn.Sequential(
+			nn.Linear(feature_channels // 8, feature_channels // 4),
+			nn.ReLU(),
+			nn.Linear(feature_channels // 4, feature_channels)
 		)
 
-		# Learnable initial hidden/cell states
-		self.init_h_1 = nn.Parameter(torch.randn(num_sensors, self.lstm_hidden_size_1), requires_grad=True)
-		self.init_c_1 = nn.Parameter(torch.randn(num_sensors, self.lstm_hidden_size_1), requires_grad=True)
-		self.init_h_2 = nn.Parameter(torch.randn(self.lstm_hidden_size_2), requires_grad=True)
-		self.init_c_2 = nn.Parameter(torch.randn(self.lstm_hidden_size_2), requires_grad=True)
+	def _init_latents(self, batch_size):
+		"""Initialize latent states for a batch"""
+		return Latents(
+			sensors_h=self.init_sensor_h.expand(-1, batch_size, -1),
+			sensors_c=self.init_sensor_c.expand(-1, batch_size, -1),
+			output=self.latents.expand(-1, batch_size, -1, -1),  # Sensor, B, Latents, Latent_dim
+		)
 
 	def forward(self, data, sensor_id, latents=None):
-		if data is not None:
-			B, H, W, C = data.shape
-			data = data.reshape(B, H * W * C)  # [B, C * H * W]
+		B = data.shape[0] if data is not None else latents.sensor_h.shape[1]
 
-			# Initialize states
-			if latents is None:
-				latents = [
-					self.init_h_1.expand(B, -1, -1),
-					self.init_c_1.expand(B, -1, -1),
-					self.init_h_2.expand(B, -1),
-					self.init_c_2.expand(B, -1),
-					torch.zeros((B, H*W, self.latent_dim), device=self.init_h_1.device)
-				]
+		if latents is None:
+			latents = self._init_latents(B)
 
-			h, c = latents[0][:,sensor_id], latents[1][:,sensor_id]
+		if data is None:
+			# when no information we use previous hidden state as input
+			data = latents.output[sensor_id]
 
-			# Run LSTM
-			lstm_cell = self.sensor_lstm_cells[sensor_id]
-			output_1, (h_1_next, c_1_next) = lstm_cell(data, (h, c))
+		data = self.projection(data)
+		data = data.reshape(B, -1)  # [B, C * H * W]
 
-			latents[0] = latents[0].clone()
-			latents[1] = latents[1].clone()
-			latents[0][:, sensor_id] = h_1_next
-			latents[1][:, sensor_id] = c_1_next
+		h, c = latents.get_sensor_states(sensor_id)
 
-		else:
-			output_1 = latents[0][:,sensor_id]
-		# Run state LSTM
-		output_2, (h_2_next, c_2_next) = self.state_lstm(output_1, (latents[2], latents[3]))
+		lstm_cell = self.sensor_lstm_cells[sensor_id]
+		sensor_h_next, sensor_c_next = lstm_cell(data, (h, c))
 
-		latents[2] = h_2_next
-		latents[3] = c_2_next
+		sensor_out = sensor_h_next.reshape(B, latents.output.shape[2], -1)  # B, H*W, C
+		sensor_out = self.mlp(sensor_out)
 
-		B, Q, _ = latents[4].shape
-		output_2 = output_2.reshape(B, Q, -1)
+		updated_latents = latents.update(sensor_id, sensor_h_next, sensor_c_next, sensor_out)
 
-		# Sum output from different sensors
-		latents[4] = latents[4] + output_2
+		S, B, L, C = updated_latents.output.shape
 
-		return latents[4], latents
+		return updated_latents.output.reshape(B, S * L, C), updated_latents

@@ -2,6 +2,7 @@ from models.autoregressive_module import build_perceiver_ar_model, AutoRegressiv
 from models.backbone import build_backbone
 from models.center_point_lstm import CenterPointLSTM
 from models.perceiver import build_model_perceiver, ObjectDetectionHead
+from models.perceiver_with_lstm import PerceiverWithLstm
 
 
 def build_model(args, input_image_view_size):
@@ -19,6 +20,27 @@ def build_model(args, input_image_view_size):
 			feature_size=backbone.output_size,
 			num_sensors=num_sensors
 		)
+		detection_head = ObjectDetectionHead(
+			num_classes=num_classes,
+			latent_dim=args.hidden_dim
+		)
+	elif args.model == 'perceiver-lstm':
+		gh, gw = args.grid_size
+		num_sensors = gh * gw
+		backbone = build_backbone(args, input_image_view_size=input_image_view_size)
+		recurrent_module = PerceiverWithLstm(
+			num_latents=args.num_queries,
+			latent_dim=args.hidden_dim,
+			feature_channels=backbone.num_channels,
+			feature_size=backbone.output_size,
+			num_sensors=num_sensors,
+			latent_heads=args.nheads,
+			latent_dim_head=args.hidden_dim // args.nheads,
+			attn_dropout=args.dropout,
+			ff_dropout=args.dropout,
+			self_per_cross_attn=args.self_per_cross_attn
+		)
+
 		detection_head = ObjectDetectionHead(
 			num_classes=num_classes,
 			latent_dim=args.hidden_dim
