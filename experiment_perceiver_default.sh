@@ -52,6 +52,7 @@ scheduler_step_size=12
 epochs=18
 shuffle_views=''
 dropout=0.0
+enc_layers=1
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -77,6 +78,7 @@ while [[ "$#" -gt 0 ]]; do
     --scheduler_step_size) scheduler_step_size="$2"; shift ;;
     --shuffle_views) shuffle_views="$2"; shift ;;
     --dropout) dropout="$2"; shift ;;
+    --enc_layers) enc_layers="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -97,6 +99,7 @@ python_command="python train.py \
     --test_dataset_fraction $test_dataset_fraction \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
+    --enc_layers $enc_layers \
     --generate_dataset_runtime \
     --sampler_steps \
     --view_dropout_probs \

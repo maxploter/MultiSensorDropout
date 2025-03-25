@@ -35,6 +35,7 @@ output_dir=""
 resume=""
 dataset_path='Max-Ploter/detection-moving-mnist-easy'
 wandb_id=''
+hidden_dim=128
 grid_size="1 1"
 tile_overlap=0.0
 num_queries=256
@@ -42,6 +43,7 @@ weight_loss_center_point=5
 num_frames=12
 frame_dropout_pattern='000000111111'
 shuffle_views=''
+enc_layers=1
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -57,6 +59,8 @@ while [[ "$#" -gt 0 ]]; do
     --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
     --wandb_id) wandb_id="$2"; shift ;;
     --shuffle_views) shuffle_views="$2"; shift ;;
+    --enc_layers) enc_layers="$2"; shift ;;
+    --hidden_dim) hidden_dim="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -77,6 +81,8 @@ evaluate_checkpoint() {
       --sampler_steps \
       --output_dir $output_dir \
       --resume $checkpoint_file \
+      --hidden_dim $hidden_dim \
+      --enc_layers $enc_layers \
       --num_workers 4 \
       --grid_size $grid_size \
       --tile_overlap $tile_overlap \
