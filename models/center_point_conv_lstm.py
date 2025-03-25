@@ -72,7 +72,7 @@ class CenterPointConvLSTM(nn.Module):
 				ConvLSTMCell(
 					input_dim=self.conv_lstm_input_size if i == 0 else self.conv_lstm_hidden_size,
 					hidden_dim=self.conv_lstm_hidden_size,
-					kernel_size=(5,5),
+					kernel_size=(3,3),
 					bias=True
 				)
 				for i in range(self.depth)
