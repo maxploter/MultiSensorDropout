@@ -49,33 +49,32 @@ class Backbone(BackboneBase):
 
 
 class BackboneCnn(nn.Module):
-    def __init__(self, input_image_view_size):
+    def __init__(self, input_image_view_size, dropout=0.0):
         super(BackboneCnn, self).__init__()
         self.block1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),  # 128 -> 64
             nn.BatchNorm2d(16),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout2d(dropout*0.5)
         )
         self.block2 = nn.Sequential(
             nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),  # 64 -> 32
             nn.BatchNorm2d(32),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout2d(dropout*0.75)
         )
         self.block3 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),  # 32 -> 16
             nn.BatchNorm2d(64),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout(dropout)
         )
         self.block4 = nn.Sequential(
             nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),  # 16 -> 8
             nn.BatchNorm2d(64),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout(dropout)
         )
-        # self.block5 = nn.Sequential(
-        #     nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),  # 8 -> 4
-        #     nn.BatchNorm2d(128),
-        #     nn.ReLU()
-        # )
         self.num_channels = 64
         h, w = input_image_view_size
         self.output_size = self._output_size(h, w)
@@ -89,7 +88,6 @@ class BackboneCnn(nn.Module):
         x = self.block2(x)
         x = self.block3(x)
         x = self.block4(x)
-        # x = self.block5(x)
         return x
 
 class BackboneIdentity(nn.Module):
@@ -104,5 +102,5 @@ def build_backbone(args, input_image_view_size):
     if 'resnet' in args.backbone:
         return Backbone(args.backbone, train_backbone=True, return_interm_layers=False, input_image_view_size=input_image_view_size)
 
-    backbone = BackboneCnn(input_image_view_size) if args.backbone == 'cnn' else BackboneIdentity()
+    backbone = BackboneCnn(input_image_view_size, dropout=args.dropout) if args.backbone == 'cnn' else BackboneIdentity()
     return backbone

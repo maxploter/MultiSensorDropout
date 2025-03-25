@@ -51,6 +51,7 @@ num_frames=12
 scheduler_step_size=12
 epochs=18
 shuffle_views=''
+dropout=0.0
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -75,6 +76,7 @@ while [[ "$#" -gt 0 ]]; do
     --resume) resume="$2"; shift ;;
     --scheduler_step_size) scheduler_step_size="$2"; shift ;;
     --shuffle_views) shuffle_views="$2"; shift ;;
+    --dropout) dropout="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -85,6 +87,7 @@ python_command="python train.py \
     --backbone 'cnn' \
     --dataset_path $dataset_path \
     --epochs $epochs \
+    --dropout $dropout \
     --eval_interval $eval_interval \
     --num_frames $num_frames \
     --learning_rate $learning_rate \
