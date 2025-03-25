@@ -320,6 +320,9 @@ def get_wandb_init_config(args):
         if args.hidden_dim != 128:
             notes += f',hidden_dim:{args.hidden_dim}'
 
+        if args.dropout > 0:
+            notes += f',dropout:{args.dropout}'
+
         if args.eval:
             notes += f',eval'
             notes += f',output_dir:{args.output_dir}'
