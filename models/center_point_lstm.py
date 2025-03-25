@@ -44,6 +44,7 @@ class Latents:
 		"""Returns (h, c) for specified sensor_id"""
 		return self.sensors_h[sensor_id], self.sensors_c[sensor_id]
 
+
 class CenterPointLSTM(nn.Module):
 	def __init__(self, num_latents, latent_dim, feature_channels, feature_size, num_sensors):
 		super().__init__()
@@ -102,6 +103,7 @@ class CenterPointLSTM(nn.Module):
 
 		lstm_cell = self.sensor_lstm_cells[sensor_id]
 		sensor_h_next, sensor_c_next = lstm_cell(data, (h, c))
+		sensor_h_next = sensor_h_next + h  # Residual connection
 
 		sensor_out = sensor_h_next.reshape(B, latents.output.shape[2], -1)  # B, H*W, C
 		sensor_out = self.mlp(sensor_out)
