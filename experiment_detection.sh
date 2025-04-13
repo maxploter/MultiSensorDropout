@@ -43,7 +43,6 @@ learning_rate_backbone=1e-4
 train_dataset_fraction=0.5
 test_dataset_fraction=1.0
 num_queries=16
-weight_loss_center_point=5
 eval_interval=1
 num_frames=20
 scheduler_step_size=12
@@ -65,7 +64,6 @@ while [[ "$#" -gt 0 ]]; do
     --train_dataset_fraction) train_dataset_fraction="$2"; shift ;;
     --test_dataset_fraction) test_dataset_fraction="$2"; shift ;;
     --num_queries) num_queries="$2"; shift ;;
-    --weight_loss_center_point) weight_loss_center_point="$2"; shift ;;
     --eval_interval) eval_interval="$2"; shift ;;
     --wandb_id) wandb_id="$2"; shift ;;
     --output_dir) output_dir="$2"; shift ;;
@@ -95,13 +93,9 @@ python_command="python train.py \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
     --enc_layers $enc_layers \
-    --generate_dataset_runtime \
-    --sampler_steps \
-    --view_dropout_probs \
     --self_per_cross_attn $self_per_cross_attn \
     --num_queries $num_queries \
     --scheduler_step_size $scheduler_step_size \
-    --weight_loss_center_point $weight_loss_center_point"
 
 # Conditionally add --resume
 if [[ -n "$resume" ]]; then
