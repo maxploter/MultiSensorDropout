@@ -80,6 +80,7 @@ python_command="python train.py \
     --model $model \
     --backbone 'cnn' \
     --object_detection \
+    --generate_dataset_runtime \
     --dataset_path $dataset_path \
     --epochs $epochs \
     --dropout $dropout \
