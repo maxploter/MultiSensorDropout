@@ -42,7 +42,8 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 				num_digits=CONFIGS['easy']["num_digits"],
 				num_frames=args.num_frames,
 			),
-			num_of_videos=60_000
+			num_of_videos=60_000,
+			detection=args.object_detection
 		)
 	else:
 		print(f"Generating {split} huggingface MovingMNIST dataset...")
