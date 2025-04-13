@@ -101,6 +101,7 @@ def add_running_metrics(device, metric_logger):
 
 def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
     average_displacement_error_evaluator = None
+    map_metric = None # Initialize map_metric variable
     if 'trajectory' in postprocessors:
         if postprocessors['trajectory'] is MultiHeadPostProcessTrajectory:
             average_displacement_error_evaluator = MultiHeadAverageDisplacementErrorEvaluator(
@@ -112,6 +113,15 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
                 matcher=criterion.matcher,
                 coordinate_norm_const=dataloader.dataset.coordinate_norm_const,
             )
+
+    # --- Initialize TorchMetrics mAP Calculator (if applicable) ---
+    if 'bbox' in postprocessors:
+        # Use torchmetrics for mAP calculation
+        # Specify box format ('xyxy', 'xywh', 'cxcywh') based on your model output/postprocessor
+        # Make sure it matches the format in both predictions and targets
+        map_metric = torchmetrics.detection.MeanAveragePrecision(box_format='xyxy', iou_type='bbox').to(device)
+        # coco_evaluator = CocoEvaluator(base_ds, 'bbox') # Remove or comment out old evaluator
+
 
     model.eval()
 
@@ -170,6 +180,46 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
             if average_displacement_error_evaluator:
               average_displacement_error_evaluator.update(*postprocessors['trajectory'](out, targets_flat))
 
+            # --- Start mAP Metric Update (Add this block) ---
+            if map_metric is not None:
+                # 1. Prepare Predictions using Postprocessor
+                # The postprocessor likely needs original image sizes.
+                # This part requires accessing the original `targets` structure from the dataloader.
+                # Adapt the loops below based on how your `targets` are structured.
+                orig_target_sizes = []
+                targets_for_metric = []
+                try:
+                    # Example loop structure: adjust based on your actual targets structure
+                    for batch_target_list in targets:
+                        for target_dict in batch_target_list:
+                            # Extract original size for postprocessor
+                            orig_target_sizes.append(target_dict['orig_size'])  # Assumes 'orig_size' key exists
+                            # Prepare ground truth dict for the metric update
+                            targets_for_metric.append({
+                                'boxes': target_dict['boxes'],  # Assumes 'boxes' key exists
+                                'labels': target_dict['labels']  # Assumes 'labels' key exists
+                            })
+
+                    orig_target_sizes_tensor = torch.stack(orig_target_sizes, dim=0).to(device)
+
+                    # Call the postprocessor with model output and original sizes
+                    predictions_for_metric = postprocessors['bbox'](out, orig_target_sizes_tensor)
+
+                    # 2. Update Metric
+                    # Ensure the number of prediction dicts matches the number of target dicts
+                    if len(predictions_for_metric) == len(targets_for_metric):
+                        map_metric.update(predictions_for_metric, targets_for_metric)
+                    else:
+                        # Log a warning if counts mismatch for this batch
+                        print(
+                            f"Warning: Batch {i}: Prediction count ({len(predictions_for_metric)}) != Target count ({len(targets_for_metric)}). Skipping mAP update.")
+
+                except (KeyError, TypeError, IndexError, AttributeError) as e:
+                    # Catch potential errors if keys ('orig_size', 'boxes', 'labels') are missing
+                    # or if targets structure is not as expected.
+                    print(f"Warning: Batch {i}: Error preparing data for mAP metric: {e}. Skipping mAP update.")
+            # --- End mAP Metric Update ---
+
     avg_values = {k: metric.compute().item() for k, metric in metric_logger.items()}
 
     if average_displacement_error_evaluator:
@@ -178,5 +228,39 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
 
     for metric in metric_logger.values():
       metric.reset()
+
+    if map_metric is not None:
+        try:
+            map_results = map_metric.compute()
+
+            # --- Process results: Convert only SCALAR tensors to items ---
+            if map_results: # Check if the results dictionary is not empty
+                 print(f"\nRaw mAP Results: {map_results}\n") # Optional: Print raw results for debugging
+                 processed_map_results = {}
+                 for k, v in map_results.items():
+                     # Check if the value is a tensor AND has only one element
+                     if isinstance(v, torch.Tensor) and v.numel() == 1:
+                         processed_map_results[f'mAP_{k}'] = v.item()
+                         # Example: Adds 'mAP_map', 'mAP_map_50', etc. to the dict
+                     # else:
+                         # Optional: You could handle multi-element tensors differently if needed
+                         # print(f"Skipping non-scalar mAP result key: {k}") # Uncomment for debug
+                         pass # Otherwise, just skip non-scalar tensors like 'classes'
+
+                 # Check if any metrics were actually processed before updating
+                 if processed_map_results:
+                      avg_values.update(processed_map_results)
+                 else:
+                      print("Warning: No scalar mAP metrics were found in map_results.")
+                      avg_values['mAP_computation_warning'] = 1
+
+            else:
+                 print("Warning: mAP metric computation returned empty results.")
+                 avg_values['mAP_computation_warning'] = 1
+            # --- End Result Processing ---
+
+        except Exception as e:
+            print(f"Error computing or processing final mAP metric: {e}")
+            avg_values['mAP_error'] = 1
 
     return avg_values

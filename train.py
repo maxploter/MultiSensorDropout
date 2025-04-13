@@ -16,6 +16,7 @@ from dataset import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
 from models.ade_post_processor import PostProcessTrajectory, MultiHeadPostProcessTrajectory
+from models.perceiver import PostProcess
 from models.set_criterion import build_criterion
 from util.misc import collate_fn, is_main_process, get_sha, get_rank
 
@@ -39,6 +40,24 @@ def parse_args():
     parser.add_argument('--weight_loss_center_point', type=int, default=5, help='Weight loss center point')
     parser.add_argument('--weight_loss_bce', type=int, default=1, help='Weight loss binary cross entropy')
     parser.add_argument('--shuffle_views', action='store_true', help='Shuffle views during inference')
+    parser.add_argument('--object_detection', action='store_true')
+
+    # * Matcher
+    parser.add_argument('--set_cost_class', default=1, type=float,
+                        help="Class coefficient in the matching cost")
+    parser.add_argument('--set_cost_bbox', default=5, type=float,
+                        help="L1 box coefficient in the matching cost")
+    parser.add_argument('--set_cost_giou', default=2, type=float,
+                        help="giou box coefficient in the matching cost")
+
+    parser.add_argument('--focal_alpha', default=0.25, type=float, help='Focal loss alpha')
+    parser.add_argument('--focal_gamma', default=2, type=float, help='Focal loss gamma')
+
+    # * Loss coefficients
+    parser.add_argument('--bbox_loss_coef', default=5, type=float)
+    parser.add_argument('--giou_loss_coef', default=2, type=float)
+    parser.add_argument('--eos_coef', default=0.1, type=float,
+                        help="Relative classification weight of the no-object class")
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
@@ -137,7 +156,10 @@ def main(args):
 
     # Model, criterion, optimizer, and scheduler
     model = build_model(args, dataset_train.input_image_view_size)
-    postprocessors = {'trajectory': MultiHeadPostProcessTrajectory() if hasattr(args,
+    if args.object_detection:
+        postprocessors = {'bbox': PostProcess()}
+    else:
+        postprocessors = {'trajectory': MultiHeadPostProcessTrajectory() if hasattr(args,
                                                                                 'multi_classification_heads') and args.multi_classification_heads else PostProcessTrajectory()}
 
     def match_name_keywords(n, name_keywords):
@@ -330,6 +352,9 @@ def get_wandb_init_config(args):
 
         if args.multi_classification_heads:
             notes += f',multi_classification_heads'
+
+        if args.object_detection:
+            notes += f',object_detection'
 
         if args.focal_loss:
             notes += f',focal_loss'

@@ -3,6 +3,8 @@ from types import SimpleNamespace
 from datasets import load_dataset
 from detection_moving_mnist.mmnist.trajectory import SimpleLinearTrajectory, BouncingTrajectory
 
+from dataset.detection_moving_mnist_easy import DetectionMovingMNISTEasyWrapper, \
+	make_mmist_transforms as make_mmist_transforms_detection
 from dataset.moving_mnist import MovingMNISTWrapper, make_mmist_transforms
 from detection_moving_mnist.mmnist.mmnist import MovingMNIST
 
@@ -21,6 +23,7 @@ CONFIGS = {
 TRAJECTORIES = {
 	"easy": SimpleLinearTrajectory,
 }
+
 
 def build_dataset(split, args, frame_dropout_pattern=None):
 	dataset_name = args.dataset.lower()
@@ -45,7 +48,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 		print(f"Generating {split} huggingface MovingMNIST dataset...")
 		# Load Hugging Face dataset split
 		hf_dataset = load_dataset(args.dataset_path, split=split)
-		dataset = MovingMNISTHuggingFaceAdapter(hf_dataset, num_frames=args.num_frames)
+		dataset = MovingMNISTHuggingFaceAdapter(hf_dataset, num_frames=args.num_frames, detection=args.object_detection)
 
 	# Determine dataset fraction
 	dataset_fraction = args.train_dataset_fraction if split == 'train' else args.test_dataset_fraction
@@ -54,8 +57,19 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	img_size = video.shape[2]
 	assert video.shape[2] == video.shape[3]
 
-	transforms, norm_transforms = make_mmist_transforms(split, img_size, frame_dropout_pattern, args)
+	if args.object_detection:
+		print("Using object detection mode")
+		# For object detection, we need to adapt the dataset to the huggingface format
+		transforms, norm_transforms = make_mmist_transforms_detection(img_size, args)
+		return DetectionMovingMNISTEasyWrapper(
+			dataset=dataset,
+			transforms=transforms,
+			norm_transforms=norm_transforms,
+			train=split == 'train',
+			dataset_fraction=dataset_fraction
+		)
 
+	transforms, norm_transforms = make_mmist_transforms(split, img_size, frame_dropout_pattern, args)
 	return MovingMNISTWrapper(
 		dataset=dataset,
 		transforms=transforms,

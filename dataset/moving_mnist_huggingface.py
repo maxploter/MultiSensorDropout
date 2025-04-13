@@ -2,9 +2,10 @@ import torch
 
 
 class MovingMNISTHuggingFaceAdapter:
-	def __init__(self, hf_split, num_frames):
+	def __init__(self, hf_split, num_frames, detection=False):
 		self.hf_split = hf_split
 		self.num_frames = num_frames
+		self.detection = detection
 
 	def __len__(self):
 		return len(self.hf_split)
@@ -16,9 +17,16 @@ class MovingMNISTHuggingFaceAdapter:
 
 		targets = []
 		for i in range(self.num_frames):
-			targets.append({
-				'labels': torch.tensor(sample['labels'][i], dtype=torch.int64),
-				'center_points': torch.tensor(sample['center_points'][i], dtype=torch.float32),
-			})
+			if self.detection:
+				targets.append({
+					'boxes': torch.tensor(sample['bboxes'][i], dtype=torch.int64),
+					'labels': torch.tensor(sample['bboxes_labels'][i], dtype=torch.int64),
+					'orig_size': torch.tensor([128,128], dtype=torch.int64), # TODO: fix this
+				})
+			else:
+				targets.append({
+					'labels': torch.tensor(sample['labels'][i], dtype=torch.int64),
+					'center_points': torch.tensor(sample['center_points'][i], dtype=torch.float32),
+				})
 
 		return video, targets
