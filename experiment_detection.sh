@@ -95,7 +95,7 @@ python_command="python train.py \
     --enc_layers $enc_layers \
     --self_per_cross_attn $self_per_cross_attn \
     --num_queries $num_queries \
-    --scheduler_step_size $scheduler_step_size \
+    --scheduler_step_size $scheduler_step_size
 
 # Conditionally add --resume
 if [[ -n "$resume" ]]; then
