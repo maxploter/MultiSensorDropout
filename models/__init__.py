@@ -1,8 +1,8 @@
-from models.autoregressive_module import build_perceiver_ar_model, AutoRegressiveModule
+from models.autoregressive_module import build_perceiver_ar_model, AutoRegressiveModule, RecurrentVideoObjectModule
 from models.backbone import build_backbone
 from models.center_point_conv_lstm import CenterPointConvLSTM
 from models.center_point_lstm import CenterPointLSTM
-from models.perceiver import build_model_perceiver, ObjectDetectionHead
+from models.perceiver import build_model_perceiver, CenterPointDetectionHead
 from models.perceiver_with_lstm import PerceiverWithLstm
 
 
@@ -21,7 +21,7 @@ def build_model(args, input_image_view_size):
 			feature_size=backbone.output_size,
 			num_sensors=num_sensors
 		)
-		detection_head = ObjectDetectionHead(
+		detection_head = CenterPointDetectionHead(
 			num_classes=num_classes,
 			latent_dim=args.hidden_dim
 		)
@@ -38,7 +38,7 @@ def build_model(args, input_image_view_size):
 			depth=args.enc_layers,  # depth of net. The shape of the final attention mechanism will be:
 			#   depth * ConvLstm
 		)
-		detection_head = ObjectDetectionHead(
+		detection_head = CenterPointDetectionHead(
 			num_classes=num_classes,
 			latent_dim=args.hidden_dim
 		)
@@ -59,7 +59,7 @@ def build_model(args, input_image_view_size):
 			self_per_cross_attn=args.self_per_cross_attn
 		)
 
-		detection_head = ObjectDetectionHead(
+		detection_head = CenterPointDetectionHead(
 			num_classes=num_classes,
 			latent_dim=args.hidden_dim
 		)
@@ -69,11 +69,18 @@ def build_model(args, input_image_view_size):
 	else:
 		raise NotImplementedError(f"Model {args.model} not implemented.")
 
-	model = AutoRegressiveModule(
-		backbone=backbone,
-		recurrent_module=recurrent_module,
-		detection_head=detection_head,
-		number_of_views=args.grid_size[0] * args.grid_size[1],
-		shuffle_views=args.shuffle_views
-	)
+	if args.object_detection:
+		model = RecurrentVideoObjectModule(
+			backbone=backbone,
+			recurrent_module=recurrent_module,
+			detection_head=detection_head,
+		)
+	else:
+		model = AutoRegressiveModule(
+			backbone=backbone,
+			recurrent_module=recurrent_module,
+			detection_head=detection_head,
+			number_of_views=args.grid_size[0] * args.grid_size[1],
+			shuffle_views=args.shuffle_views
+		)
 	return model

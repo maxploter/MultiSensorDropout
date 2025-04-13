@@ -1,5 +1,8 @@
 import torch
 
+from util.box_ops import box_xyxy_to_cxcywh
+
+
 def split_frame_into_tiles(frame, grid_size, overlap_ratio=0.0):
 	"""Split a frame into tiles based on grid size with optional overlap
 
@@ -141,6 +144,24 @@ class ToCenterCoordinateSystemTransform:
 
 		return video, targets
 
+
+class NormBoxesTransform:
+
+	def __init__(self, img_size):
+		self.img_size = img_size
+
+	def __call__(self, video, targets):
+		for i in range(len(targets)):
+			boxes = targets[i]['boxes']
+			if len(boxes) == 0:
+				continue
+			boxes[:, 2:] += boxes[:, :2]
+			boxes = box_xyxy_to_cxcywh(boxes)
+			w, h = self.img_size, self.img_size
+			boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
+			targets[i]['boxes'] = boxes
+
+		return video, targets
 
 class Compose:
 

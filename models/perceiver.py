@@ -9,6 +9,7 @@ from torch import Tensor
 from torch import nn, einsum
 
 from models.backbone import build_backbone
+from util import box_ops
 
 
 def exists(val):
@@ -329,7 +330,7 @@ class MLP(nn.Module):
         return x
 
 
-class ObjectDetectionHead(nn.Module):
+class CenterPointDetectionHead(nn.Module):
     def __init__(self, num_classes, latent_dim):
         """ Initializes the model.
         Parameters:
@@ -362,6 +363,38 @@ class ObjectDetectionHead(nn.Module):
         out = {'pred_logits': outputs_class, 'pred_center_points': outputs_coord}
         return out
 
+class ObjectDetectionHead(nn.Module):
+    def __init__(self, num_classes, latent_dim):
+        """ Initializes the model.
+        Parameters:
+            num_classes: number of object classes
+            num_latents: number of object queries, ie detection slot. This is the maximal number of objects
+                         model can detect in a single image. For COCO, we recommend 100 queries.
+            latent_dim: dimension of the latent object query.
+        """
+        super().__init__()
+        self.class_embed = nn.Linear(latent_dim, num_classes + 1)
+        self.center_points_embed = MLP(latent_dim, latent_dim, 4, 3)
+
+    def forward(self, hs: Tensor):
+        """Forward pass of the ObjectDetectionHead.
+            Parameters:
+                - hs: Tensor
+                    Hidden states from the model, of shape [batch_size x num_queries x latent_dim].
+
+            It returns a dict with the following elements:
+               - "pred_logits": the classification logits (including no-object) for all queries.
+                                Shape= [batch_size x num_queries x (num_classes + 1)]
+               - "pred_boxes": The normalized boxes coordinates for all queries, represented as
+                               (center_x, center_y, height, width). These values are normalized in [0, 1],
+                               relative to the size of each individual image (disregarding possible padding).
+                               See PostProcess for information on how to retrieve the unnormalized bounding box.
+        """
+        outputs_class = self.class_embed(hs)
+        outputs_coord = self.center_points_embed(hs).sigmoid()
+        out = {'pred_logits': outputs_class, 'pred_boxes': outputs_coord}
+        return out
+
 class DigitHead(nn.Module):
     """Single head for a specific digit (binary classification + center regression)"""
     def __init__(self, latent_dim, detection_object_id):
@@ -377,6 +410,36 @@ class DigitHead(nn.Module):
 
         return {'pred_logits': outputs_class, 'pred_center_points': outputs_center_points}
 
+
+class PostProcess(nn.Module):
+    """ This module converts the model's output into the format expected by the coco api"""
+    @torch.no_grad()
+    def forward(self, outputs, target_sizes):
+        """ Perform the computation
+        Parameters:
+            outputs: raw outputs of the model
+            target_sizes: tensor of dimension [batch_size x 2] containing the size of each images of the batch
+                          For evaluation, this must be the original image size (before any data augmentation)
+                          For visualization, this should be the image size after data augment, but before padding
+        """
+        out_logits, out_bbox = outputs['pred_logits'], outputs['pred_boxes']
+
+        assert len(out_logits) == len(target_sizes)
+        assert target_sizes.shape[1] == 2
+
+        prob = F.softmax(out_logits, -1)
+        scores, labels = prob[..., :-1].max(-1)
+
+        # convert to [x0, y0, x1, y1] format
+        boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
+        # and from relative [0, 1] to absolute [0, height] coordinates
+        img_h, img_w = target_sizes.unbind(1)
+        scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
+        boxes = boxes * scale_fct[:, None, :]
+
+        results = [{'scores': s, 'labels': l, 'boxes': b} for s, l, b in zip(scores, labels, boxes)]
+
+        return results
 
 def build_model_perceiver(args, num_classes, input_image_view_size):
 
@@ -430,9 +493,15 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
                 detection_object_id=f'{i}'
             ))
     else:
-        classification_heads = ObjectDetectionHead(
-            num_classes=num_classes,
-            latent_dim=args.hidden_dim
-        )
+        if args.object_detection:
+            classification_heads = ObjectDetectionHead(
+                num_classes=num_classes,
+                latent_dim=args.hidden_dim
+            )
+        else:
+            classification_heads = CenterPointDetectionHead(
+                num_classes=num_classes,
+                latent_dim=args.hidden_dim
+            )
 
     return backbone, perceiver, classification_heads
