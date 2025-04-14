@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from models.ade_post_processor import AverageDisplacementErrorEvaluator, MultiHeadPostProcessTrajectory, \
     MultiHeadAverageDisplacementErrorEvaluator
+from util.box_ops import box_cxcywh_to_xyxy
 
 
 def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
@@ -180,7 +181,6 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
             if average_displacement_error_evaluator:
               average_displacement_error_evaluator.update(*postprocessors['trajectory'](out, targets_flat))
 
-            # --- Start mAP Metric Update (Add this block) ---
             if map_metric is not None:
                 # 1. Prepare Predictions using Postprocessor
                 # The postprocessor likely needs original image sizes.
@@ -189,15 +189,19 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
                 orig_target_sizes = []
                 targets_for_metric = []
                 try:
-                    # Example loop structure: adjust based on your actual targets structure
                     for batch_target_list in targets:
                         for target_dict in batch_target_list:
                             # Extract original size for postprocessor
                             orig_target_sizes.append(target_dict['orig_size'])  # Assumes 'orig_size' key exists
-                            # Prepare ground truth dict for the metric update
+                            img_h, img_w = target_dict['orig_size']
+                            scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=0)
+                            boxes = target_dict['boxes']
+                            if boxes.numel() > 0:
+                                boxes = box_cxcywh_to_xyxy(boxes) * scale_fct
+
                             targets_for_metric.append({
-                                'boxes': target_dict['boxes'],  # Assumes 'boxes' key exists
-                                'labels': target_dict['labels']  # Assumes 'labels' key exists
+                                'boxes': boxes,
+                                'labels': target_dict['labels']
                             })
 
                     orig_target_sizes_tensor = torch.stack(orig_target_sizes, dim=0).to(device)
