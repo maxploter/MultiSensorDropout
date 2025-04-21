@@ -35,6 +35,7 @@ output_dir="not_tracked_dir/output_${model}_detection_${timestamp}"
 resume=''
 wandb_id=''
 dataset_path='Max-Ploter/detection-moving-mnist-easy'
+backbone='cnn'
 
 self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
@@ -50,11 +51,14 @@ epochs=18
 dropout=0.0
 enc_layers=1
 resize_frame=''
+max_freq=10
+num_freq_bands=6
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --model) model="$2"; shift ;;
+    --backbone) backbone="$2"; shift ;;
     --epochs) epochs="$2"; shift ;;
     --dataset_path) dataset_path="$2"; shift ;;
     --num_frames) num_frames="$2"; shift ;;
@@ -73,6 +77,8 @@ while [[ "$#" -gt 0 ]]; do
     --dropout) dropout="$2"; shift ;;
     --enc_layers) enc_layers="$2"; shift ;;
     --resize_frame) resize_frame="$2"; shift ;;
+    --max_freq) max_freq="$2"; shift ;;
+    --num_freq_bands) num_freq_bands="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -80,7 +86,7 @@ done
 
 python_command="python train.py \
     --model $model \
-    --backbone 'cnn' \
+    --backbone $backbone \
     --object_detection \
     --generate_dataset_runtime \
     --dataset_path $dataset_path \
@@ -98,6 +104,8 @@ python_command="python train.py \
     --enc_layers $enc_layers \
     --self_per_cross_attn $self_per_cross_attn \
     --num_queries $num_queries \
+    --max_freq $max_freq \
+    --num_freq_bands $num_freq_bands \
     --scheduler_step_size $scheduler_step_size"
 
 if [[ -n "$resize_frame" ]]; then
