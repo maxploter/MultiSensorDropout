@@ -41,6 +41,7 @@ def parse_args():
     parser.add_argument('--weight_loss_bce', type=int, default=1, help='Weight loss binary cross entropy')
     parser.add_argument('--shuffle_views', action='store_true', help='Shuffle views during inference')
     parser.add_argument('--object_detection', action='store_true')
+    parser.add_argument('--resize_frame', type=int, help='Resize frame to this size')
 
     # * Matcher
     parser.add_argument('--set_cost_class', default=1, type=float,

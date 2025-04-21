@@ -49,6 +49,7 @@ scheduler_step_size=12
 epochs=18
 dropout=0.0
 enc_layers=1
+resize_frame=''
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -71,6 +72,7 @@ while [[ "$#" -gt 0 ]]; do
     --scheduler_step_size) scheduler_step_size="$2"; shift ;;
     --dropout) dropout="$2"; shift ;;
     --enc_layers) enc_layers="$2"; shift ;;
+    --resize_frame) resize_frame="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -97,6 +99,10 @@ python_command="python train.py \
     --self_per_cross_attn $self_per_cross_attn \
     --num_queries $num_queries \
     --scheduler_step_size $scheduler_step_size"
+
+if [[ -n "$resize_frame" ]]; then
+    python_command="$python_command --resize_frame $resize_frame"
+fi
 
 # Conditionally add --resume
 if [[ -n "$resume" ]]; then
