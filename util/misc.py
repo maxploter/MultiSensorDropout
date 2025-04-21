@@ -4,6 +4,7 @@ import subprocess
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+import torchvision
 
 
 def collate_fn(batch):
@@ -110,3 +111,13 @@ def is_main_process():
 
 def is_multi_head_fn(keys):
     return all(k.isdigit() for k in keys)
+
+
+def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corners=None):
+    # type: (Tensor, Optional[List[int]], Optional[float], str, Optional[bool]) -> Tensor
+    """
+    Equivalent to nn.functional.interpolate, but with support for empty batch sizes.
+    This will eventually be supported natively by PyTorch, and this
+    class can go away.
+    """
+    return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)

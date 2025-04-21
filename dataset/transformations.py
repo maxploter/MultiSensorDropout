@@ -2,6 +2,16 @@ import torch
 
 from util.box_ops import box_xyxy_to_cxcywh
 
+import random
+
+import PIL
+import torch
+import torchvision.transforms as T
+import torchvision.transforms.functional as F
+
+from util.box_ops import box_xyxy_to_cxcywh
+from util.misc import interpolate
+
 
 def split_frame_into_tiles(frame, grid_size, overlap_ratio=0.0):
 	"""Split a frame into tiles based on grid size with optional overlap
@@ -147,21 +157,19 @@ class ToCenterCoordinateSystemTransform:
 
 class NormBoxesTransform:
 
-	def __init__(self, img_size):
-		self.img_size = img_size
-
 	def __call__(self, video, targets):
+		h, w = video.shape[-2], video.shape[-1]
 		for i in range(len(targets)):
 			boxes = targets[i]['boxes']
 			if len(boxes) == 0:
 				continue
 			boxes[:, 2:] += boxes[:, :2]
 			boxes = box_xyxy_to_cxcywh(boxes)
-			w, h = self.img_size, self.img_size
 			boxes = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)
 			targets[i]['boxes'] = boxes
 
 		return video, targets
+
 
 class Compose:
 
@@ -183,3 +191,94 @@ class Compose:
 			format_string += "    {0}".format(t)
 		format_string += "\n)"
 		return format_string
+
+
+def resize(image, target, size, max_size=None):
+	# size can be min_size (scalar) or (w, h) tuple
+
+	def get_size_with_aspect_ratio(image_size, size, max_size=None):
+		w, h = image_size
+		if max_size is not None:
+			min_original_size = float(min((w, h)))
+			max_original_size = float(max((w, h)))
+			if max_original_size / min_original_size * size > max_size:
+				size = int(round(max_size * min_original_size / max_original_size))
+
+		if (w <= h and w == size) or (h <= w and h == size):
+			return (h, w)
+
+		if w < h:
+			ow = size
+			oh = int(size * h / w)
+		else:
+			oh = size
+			ow = int(size * w / h)
+
+		return (oh, ow)
+
+	def get_size(image_size, size, max_size=None):
+		if isinstance(size, (list, tuple)):
+			return size[::-1]
+		else:
+			return get_size_with_aspect_ratio(image_size, size, max_size)
+
+	if image.ndim == 4:  # Assuming TCHW format for video
+		orig_h, orig_w = image.shape[-2:]
+	elif image.ndim == 3:  # Assuming CHW format for single image
+		orig_h, orig_w = image.shape[-2:]
+	elif image.ndim == 2:  # Assuming HW format for single image
+		orig_h, orig_w = image.shape
+	else:
+		raise ValueError(f"Unsupported tensor input shape: {image.shape}")
+	image_size_wh = (orig_w, orig_h)  # (Width, Height) for get_size calculation
+	orig_shape_hw = (orig_h, orig_w)  # (Height, Width) for ratio calculation
+
+	# Calculate target size (h, w)
+	# The get_size function returns (h, w)
+	new_size_hw = get_size(image_size_wh, size, max_size)
+
+	# Resize the image/video tensor
+	# F.resize expects size argument as [h, w] list or tuple
+	rescaled_image = F.resize(image, list(new_size_hw))
+
+	if target is None:
+		return rescaled_image, None
+
+	# Calculate scaling ratios based on actual final shape vs original shape
+	new_h, new_w = new_size_hw
+	orig_h, orig_w = orig_shape_hw
+
+	# Avoid division by zero if original dimensions were 0
+	if orig_w == 0 or orig_h == 0:
+		ratio_width = ratio_height = 1.0
+	else:
+		ratio_width = float(new_w) / float(orig_w)
+		ratio_height = float(new_h) / float(orig_h)
+
+	ratios_tensor = torch.tensor([ratio_width, ratio_height, ratio_width, ratio_height])
+
+	updated_targets = []
+	for frame_target in target:
+		new_frame_target = frame_target.copy()  # Process copy
+
+		if "boxes" in new_frame_target:
+			boxes = new_frame_target["boxes"]
+			# Ensure boxes is a tensor and not empty before scaling
+			if isinstance(boxes, torch.Tensor) and boxes.numel() > 0:
+				# Move ratios tensor to the same device as boxes before scaling
+				scaled_boxes = boxes * ratios_tensor.to(boxes.device)
+				new_frame_target["boxes"] = scaled_boxes
+
+		updated_targets.append(new_frame_target)
+	return rescaled_image, updated_targets  # Return list of updated targets
+
+
+class RandomResize(object):
+	def __init__(self, sizes, max_size=None):
+		assert isinstance(sizes, (list, tuple))
+		self.sizes = sizes
+		self.max_size = max_size
+
+	def __call__(self, img, target=None):
+		size = random.choice(self.sizes)
+		return resize(img, target, size, self.max_size)

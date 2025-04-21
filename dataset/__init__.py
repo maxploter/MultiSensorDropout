@@ -60,8 +60,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 
 	if args.object_detection:
 		print("Using object detection mode")
-		# For object detection, we need to adapt the dataset to the huggingface format
-		transforms, norm_transforms = make_mmist_transforms_detection(img_size, args)
+		transforms, norm_transforms = make_mmist_transforms_detection(args)
 		return DetectionMovingMNISTEasyWrapper(
 			dataset=dataset,
 			transforms=transforms,
