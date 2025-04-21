@@ -49,8 +49,8 @@ class DetectionMovingMNISTEasyWrapper(Dataset):
 	def __getitem__(self, idx):
 		sample_idx = self.indices[idx]
 		video, targets = self.dataset[sample_idx]
-		video = self.norm_transforms(video) #TODO: move in the end of the pipeline
 		video, targets = self.transforms(video, targets)
+		video = self.norm_transforms(video)
 
 		return video, targets
 
