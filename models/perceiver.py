@@ -42,6 +42,8 @@ def fourier_encode(x, max_freq, num_bands=4):
     device, dtype, orig_x = x.device, x.dtype, x
 
     scales = torch.linspace(1., max_freq / 2, num_bands, device=device, dtype=dtype)
+    #(None, None, None, Ellipsis)
+    # Indexing with None (which is equivalent to numpy.newaxis) inserts a new dimension of size 1 at that position.
     scales = scales[(*((None,) * (len(x.shape) - 1)), Ellipsis)]
 
     x = x * scales * pi

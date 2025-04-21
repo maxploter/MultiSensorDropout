@@ -73,6 +73,76 @@ class BackboneCnn(nn.Module):
         x = self.block1(x)
         return x
 
+
+class SimpleVGGBackbone(nn.Module):
+    """
+    A simple VGG-style backbone suitable for larger grayscale images like 320x320
+    with moderately sized objects (e.g., 70x70 digits).
+    Uses BatchNorm and MaxPool for downsampling.
+    Outputs features with a total stride of 16.
+    """
+    def __init__(self, input_channels=1):
+        super().__init__()
+        # Input size reference: 320x320
+
+        self.features = nn.Sequential(
+            # Block 1: 320x320 -> 160x160 (Stride 2)
+            # Output channels: 32
+            nn.Conv2d(input_channels, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            # Block 2: 160x160 -> 80x80 (Stride 4)
+            # Output channels: 64
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            # Block 3: 80x80 -> 40x40 (Stride 8)
+            # Output channels: 128
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            # Block 4: 40x40 -> 20x20 (Stride 16)
+            # Output channels: 256
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            # Adding a couple more conv layers here for more depth at this stage
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1), # Optional extra layer
+            nn.BatchNorm2d(256),                          # Optional extra layer
+            nn.ReLU(inplace=True),                        # Optional extra layer
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+
+        # The number of channels output by the last layer of self.features
+        self.num_channels = 256
+        # The output feature map size will be input_size / 16
+        # For 320x320 input, this gives 20x20 features.
+
+    def forward(self, x):
+        # Input x shape: (Batch, Channels, Height, Width) e.g., (B, 1, 320, 320)
+        x = self.features(x)
+        # Output x shape: (Batch, self.num_channels, Height/16, Width/16) e.g., (B, 256, 20, 20)
+        return x
+
+
 class BackboneIdentity(nn.Module):
     def __init__(self):
         super(BackboneIdentity, self).__init__()
@@ -84,6 +154,10 @@ class BackboneIdentity(nn.Module):
 def build_backbone(args, input_image_view_size):
     if 'resnet' in args.backbone:
         return Backbone(args.backbone, train_backbone=True, return_interm_layers=False, input_image_view_size=input_image_view_size)
+
+    if 'vgg' in args.backbone:
+        print("Using VGG backbone")
+        return SimpleVGGBackbone(input_channels=1)
 
     backbone = BackboneCnn(input_image_view_size) if args.backbone == 'cnn' else BackboneIdentity()
     return backbone
