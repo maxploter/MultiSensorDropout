@@ -2,6 +2,7 @@ import torch.nn as nn
 import torchvision
 from torchvision.models._utils import IntermediateLayerGetter
 from torchvision.ops import FrozenBatchNorm2d
+import torch
 
 
 class BackboneBase(nn.Module):
@@ -73,6 +74,94 @@ class BackboneCnn(nn.Module):
         x = self.block1(x)
         return x
 
+
+class BackboneCnnV2(nn.Module):
+
+    def __init__(self):
+        """
+        Initializes the Backbone CNN.
+
+        Args:
+            input_image_view_size (tuple): A tuple (height, width) representing
+                                           the expected input image dimensions.
+        """
+        super(BackboneCnnV2, self).__init__()
+
+        # Block 1: Increase 1 -> 16, first downsampling (x2) << MODIFIED >>
+        self.block1 = nn.Sequential(
+            # Input: [N, 1, H, W]
+            # Adjusted intermediate channels for smoother transition potentially
+            nn.Conv2d(1, 8, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(8, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1),  # Output: [N, 16, H/2, W/2]
+            nn.ReLU(),
+        )
+
+        # Block 2: Increase 16 -> 32, second downsampling (x4) << MODIFIED >>
+        self.block2 = nn.Sequential(
+            # Input: [N, 16, H/2, W/2]
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1),  # Output: [N, 32, H/4, W/4]
+            nn.ReLU(),
+        )
+
+        # Block 3: Increase 32 -> 64, third downsampling (x8) << MODIFIED >>
+        self.block3 = nn.Sequential(
+            # Input: [N, 32, H/4, W/4]
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),  # Output: [N, 64, H/8, W/8]
+            nn.ReLU(),
+        )
+
+        # Block 4: Increase 64 -> 128, fourth downsampling (x16) << MODIFIED >>
+        self.block4 = nn.Sequential(
+            # Input: [N, 64, H/8, W/8]
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),  # Output: [N, 128, H/16, W/16]
+            nn.ReLU(),
+        )
+
+        # Set the final number of channels explicitly << MODIFIED >>
+        self.num_channels = 128
+
+        # Calculate the final output spatial size based on input size and downsampling
+        h, w = (0, 0)  # Placeholder values
+        self.output_size = self._output_size(h, w)
+
+    def _output_size(self, input_h, input_w):
+        """
+				Calculates the output spatial dimensions after passing through all blocks.
+				Total downsampling factor is 16 (2x from each of the 4 blocks).
+				"""
+        # Downsampled by 2 in block1, block2, block3, and block4
+        return input_h // 16, input_w // 16
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+				Defines the forward pass of the CNN.
+
+				Args:
+						x (torch.Tensor): Input tensor of shape [N, 1, H, W].
+
+				Returns:
+						torch.Tensor: Output feature map tensor of shape [N, 128, H/16, W/16].
+				"""
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        x = self.block4(x)
+        return x
 
 class SimpleVGGBackbone(nn.Module):
     """
@@ -158,6 +247,10 @@ def build_backbone(args, input_image_view_size):
     if 'vgg' in args.backbone:
         print("Using VGG backbone")
         return SimpleVGGBackbone(input_channels=1)
+
+    if args.backbone == 'cnn' and args.resize_frame:
+        print(f"Using CNN v2 backbone with resized input size {args.resize_frame}x{args.resize_frame}")
+        return BackboneCnnV2()
 
     backbone = BackboneCnn(input_image_view_size) if args.backbone == 'cnn' else BackboneIdentity()
     return backbone
