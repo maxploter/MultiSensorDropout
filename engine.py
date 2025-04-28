@@ -100,7 +100,7 @@ def add_running_metrics(device, metric_logger):
     metric_logger['loss_ce_running'] = torchmetrics.RunningMean(window=window).to(device)
 
 
-def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
+def evaluate(model, dataloader, criterion, postprocessors, epoch, device, evaluators=None):
     average_displacement_error_evaluator = None
     map_metric = None # Initialize map_metric variable
     if 'trajectory' in postprocessors:
@@ -181,6 +181,10 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
             if average_displacement_error_evaluator:
               average_displacement_error_evaluator.update(*postprocessors['trajectory'](out, targets_flat))
 
+            if evaluators:
+              for evaluator in evaluators:
+                evaluator.update(out, targets_flat)
+
             if map_metric is not None:
                 # 1. Prepare Predictions using Postprocessor
                 # The postprocessor likely needs original image sizes.
@@ -229,6 +233,11 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device):
     if average_displacement_error_evaluator:
       average_displacement_error_evaluator.accumulate()
       avg_values.update(average_displacement_error_evaluator.summary())
+
+    if evaluators:
+      for evaluator in evaluators:
+        evaluator.accumulate()
+        avg_values.update(evaluator.summary())
 
     for metric in metric_logger.values():
       metric.reset()
