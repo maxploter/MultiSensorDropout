@@ -30,7 +30,8 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	assert dataset_name.startswith('moving-mnist')
 
 	if args.generate_dataset_runtime and split == 'train':
-		print(f"Generating {split} dynamic MovingMNIST dataset...")
+		is_overlap_free = not args.random_digits_placement
+		print(f"Generating {split} dynamic MovingMNIST dataset... Overlap free {is_overlap_free}")
 		affine_params = SimpleNamespace(**CONFIGS['easy'])
 		trajectory = TRAJECTORIES['easy']
 		dataset = MovingMNISTDynamicAdapter(
@@ -41,6 +42,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 				affine_params=affine_params,
 				num_digits=CONFIGS['easy']["num_digits"],
 				num_frames=args.num_frames,
+				initial_digits_overlap_free=is_overlap_free,
 			),
 			num_of_videos=60_000,
 			detection=args.object_detection

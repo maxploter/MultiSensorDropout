@@ -42,6 +42,7 @@ def parse_args():
     parser.add_argument('--shuffle_views', action='store_true', help='Shuffle views during inference')
     parser.add_argument('--object_detection', action='store_true')
     parser.add_argument('--resize_frame', type=int, help='Resize frame to this size')
+    parser.add_argument('--random_digits_placement', action='store_true')
 
     # * Matcher
     parser.add_argument('--set_cost_class', default=1, type=float,
@@ -359,7 +360,8 @@ def get_wandb_init_config(args):
 
         if args.focal_loss:
             notes += f',focal_loss'
-
+        if args.random_digits_placement:
+            notes += f',random_digits_placement'
         if args.shuffle_views:
             notes += f',shuffle_views'
 
