@@ -10,4 +10,4 @@ dependencies:
   - conda-forge::wandb
   - conda-forge::datasets
   - pip:
-      - detection-moving-mnist==0.3.0
+      - detection-moving-mnist==0.3.1
