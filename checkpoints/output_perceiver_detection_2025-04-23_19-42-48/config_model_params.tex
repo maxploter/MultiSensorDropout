@@ -1,0 +1,20 @@
+\begin{table}[htb!]
+    \centering
+    \caption{Hyperparameters used for configuring RPerceiver model.}
+    \label{tab:model_params_20250505}
+    \begin{tblr}{width=1\textwidth, hlines, vlines,
+                   colspec = { l l X },
+                   row{1} = {font=\bfseries},
+                   colsep=3pt,
+                  }
+        Hyperparameter & Value & Description \\
+        enc\_layers & 1 & Number of layers in Perceiver encoder \\
+        enc\_nheads\_cross & 1 & Number of cross-attention heads \\
+        hidden\_dim & 128 & Latent dimension size \\
+        max\_freq & 10 & Maximum frequency for Fourier encoding \\
+        nheads & 1 & Number of latent self-attention heads \\
+        num\_freq\_bands & 6 & Number of frequency bands for Fourier encoding \\
+        num\_queries & 16 & Number of latents, or induced set points, or centroids \\
+        self\_per\_cross\_attn & 1 & Number of self-attention blocks per cross-attention block \\
+    \end{tblr}
+\end{table}

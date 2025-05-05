@@ -1,0 +1,25 @@
+\begin{table}[htb!]
+    \centering
+    \caption{Hyperparameters used for training the RPerceiver model for bounding box prediction task.}
+    \label{tab:model_config_20250505}
+    \begin{tblr}{width=1\textwidth, hlines, vlines,
+                    colspec = { l l l l l l },
+                    row{1} = {font=\bfseries},
+                    colsep=3pt,
+                }
+        Hyperparameter & Value & Description & Hyperparameter & Value & Description \\
+        backbone & cnn & Backbone type & num\_frames & 20 & Number of frames. \\
+        batch\_size & 1 & Batch size for training & num\_freq\_bands & 6 & Number of frequency bands for Fourier encoding \\
+        bbox\_loss\_coef & 5 & nan & num\_queries & 16 & Number of latents, or induced set points, or centroids \\
+        enc\_layers & 1 & Number of layers in Perceiver encoder & object\_detection & True & nan \\
+        enc\_nheads\_cross & 1 & Number of cross-attention heads & resize\_frame & 320 & Resize frame to this size \\
+        eos\_coef & 0.1 & Relative classification weight of the no-object class & scheduler\_step\_size & 28 & Scheduler step size \\
+        epochs & 32 & Number of training epochs & self\_per\_cross\_attn & 1 & Number of self-attention blocks per cross-attention block \\
+        giou\_loss\_coef & 2 & nan & set\_cost\_bbox & 5 & L1 box coefficient in the matching cost \\
+        hidden\_dim & 128 & Latent dimension size & set\_cost\_class & 1 & Class coefficient in the matching cost \\
+        learning\_rate & 1e-05 & Learning rate & set\_cost\_giou & 2 & giou box coefficient in the matching cost \\
+        learning\_rate\_backbone & 1e-05 & Learning rate & weight\_decay & 0.01 & Weight decay for optimizer \\
+        max\_freq & 10 & Maximum frequency for Fourier encoding & weight\_loss\_bce & 1 & Weight loss binary cross entropy \\
+        nheads & 1 & Number of latent self-attention heads & weight\_loss\_center\_point & 5 & Weight loss center point \\
+    \end{tblr}
+\end{table}
