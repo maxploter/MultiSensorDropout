@@ -8,8 +8,8 @@ Hyperparameter,Value,Description
 `epochs`,`32`,Number of training epochs
 `giou_loss_coef`,`2`,GIoU box coefficient
 `hidden_dim`,`128`,Latent dimension size
-`learning_rate`,`1e-05`,Learning rate
-`learning_rate_backbone`,`1e-05`,Learning rate
+`learning_rate`,`0.0001`,Learning rate
+`learning_rate_backbone`,`0.0001`,Learning rate
 `max_freq`,`10`,Maximum frequency for Fourier encoding
 `nheads`,`1`,Number of latent self-attention heads
 `num_frames`,`20`,Number of frames.
@@ -17,7 +17,7 @@ Hyperparameter,Value,Description
 `num_queries`,`16`,"Number of latents, or induced set points, or centroids"
 `object_detection`,`True`,Use object detection prediction head
 `resize_frame`,`320`,Resize frame to this size
-`scheduler_step_size`,`28`,Scheduler step size
+`scheduler_step_size`,"`18,28`",Scheduler step size
 `self_per_cross_attn`,`1`,Number of self-attention blocks per cross-attention block
 `set_cost_bbox`,`5`,L1 box coefficient in the matching cost
 `set_cost_class`,`1`,Class coefficient in the matching cost
