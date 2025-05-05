@@ -20,9 +20,8 @@ from models.perceiver import PostProcess
 from models.set_criterion import build_criterion
 from util.misc import collate_fn, is_main_process, get_sha, get_rank
 
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Train Sensor dropout")
+def _get_parser():
+    parser = argparse.ArgumentParser(description="Train MultiSensor dropout")
 
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training')
@@ -40,7 +39,7 @@ def parse_args():
     parser.add_argument('--weight_loss_center_point', type=int, default=5, help='Weight loss center point')
     parser.add_argument('--weight_loss_bce', type=int, default=1, help='Weight loss binary cross entropy')
     parser.add_argument('--shuffle_views', action='store_true', help='Shuffle views during inference')
-    parser.add_argument('--object_detection', action='store_true')
+    parser.add_argument('--object_detection', action='store_true', help='Use object detection prediction head')
     parser.add_argument('--resize_frame', type=int, help='Resize frame to this size')
     parser.add_argument('--random_digits_placement', action='store_true')
 
@@ -56,8 +55,10 @@ def parse_args():
     parser.add_argument('--focal_gamma', default=2, type=float, help='Focal loss gamma')
 
     # * Loss coefficients
-    parser.add_argument('--bbox_loss_coef', default=5, type=float)
-    parser.add_argument('--giou_loss_coef', default=2, type=float)
+    parser.add_argument('--bbox_loss_coef', default=5, type=float,
+                        help="L1 box coefficient")
+    parser.add_argument('--giou_loss_coef', default=2, type=float,
+                        help="GIoU box coefficient")
     parser.add_argument('--eos_coef', default=0.1, type=float,
                         help="Relative classification weight of the no-object class")
 
@@ -104,7 +105,10 @@ def parse_args():
 
     # LSTM model specific arguments
     parser.add_argument('--lstm_hidden_size', type=int, default=128, help='Hidden size of LSTM')
+    return parser
 
+def parse_args():
+    parser = _get_parser()
     args = parser.parse_args()
     return args
 

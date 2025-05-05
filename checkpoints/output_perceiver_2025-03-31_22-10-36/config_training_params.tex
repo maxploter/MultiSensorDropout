@@ -1,0 +1,30 @@
+\begin{table}[htb!]
+    \centering
+    \caption{Hyperparameters used for training the RPerceiverMM model for center point task.}
+    \label{tab:training_params_20250505}
+    \begin{tblr}{width=1\textwidth, hlines, vlines,
+                   colspec = { l l X },
+                   row{1} = {font=\bfseries},
+                   colsep=3pt,
+                  }
+        Hyperparameter & Value & Description \\
+        backbone & cnn & Backbone type \\
+        batch\_size & 1 & Batch size for training \\
+        bbox\_loss\_coef & None & L1 box coefficient \\
+        eos\_coef & None & Relative classification weight of the no-object class \\
+        epochs & 21 & Number of training epochs \\
+        giou\_loss\_coef & None & GIoU box coefficient \\
+        learning\_rate & 0.0001 & Learning rate \\
+        learning\_rate\_backbone & 0.0001 & Learning rate \\
+        num\_frames & 12 & Number of frames. \\
+        object\_detection & None & Use object detection prediction head \\
+        resize\_frame & None & Resize frame to this size \\
+        scheduler\_step\_size & 18 & Scheduler step size \\
+        set\_cost\_bbox & None & L1 box coefficient in the matching cost \\
+        set\_cost\_class & None & Class coefficient in the matching cost \\
+        set\_cost\_giou & None & giou box coefficient in the matching cost \\
+        weight\_decay & 0.01 & Weight decay for optimizer \\
+        weight\_loss\_bce & 1 & Weight loss binary cross entropy \\
+        weight\_loss\_center\_point & 5 & Weight loss center point \\
+    \end{tblr}
+\end{table}

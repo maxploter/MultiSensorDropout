@@ -1,0 +1,21 @@
+\begin{table}[htb!]
+    \centering
+    \caption{Hyperparameters used for training the RPerceiverMM model for center point task.}
+    \label{tab:model_config_20250505}
+    \begin{tblr}{width=1\textwidth, hlines, vlines,
+                    colspec = { l l l l l l },
+                    row{1} = {font=\bfseries},
+                    colsep=3pt,
+                }
+        Hyperparameter & Value & Description & Hyperparameter & Value & Description \\
+        backbone & cnn & Backbone type & nheads & 1 & Number of latent self-attention heads \\
+        batch\_size & 1 & Batch size for training & num\_frames & 12 & Number of frames. \\
+        enc\_layers & 1 & Number of layers in Perceiver encoder & num\_freq\_bands & 6 & Number of frequency bands for Fourier encoding \\
+        enc\_nheads\_cross & 1 & Number of cross-attention heads & num\_queries & 16 & Number of latents, or induced set points, or centroids \\
+        epochs & 21 & Number of training epochs & scheduler\_step\_size & 18 & Scheduler step size \\
+        hidden\_dim & 128 & Latent dimension size & self\_per\_cross\_attn & 1 & Number of self-attention blocks per cross-attention block \\
+        learning\_rate & 0.0001 & Learning rate & weight\_decay & 0.01 & Weight decay for optimizer \\
+        learning\_rate\_backbone & 0.0001 & Learning rate & weight\_loss\_bce & 1 & Weight loss binary cross entropy \\
+        max\_freq & 10 & Maximum frequency for Fourier encoding & weight\_loss\_center\_point & 5 & Weight loss center point \\
+    \end{tblr}
+\end{table}

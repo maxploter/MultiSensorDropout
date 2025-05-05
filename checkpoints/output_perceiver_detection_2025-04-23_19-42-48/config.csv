@@ -1,0 +1,27 @@
+Hyperparameter,Value,Description
+`backbone`,`cnn`,Backbone type
+`batch_size`,`1`,Batch size for training
+`bbox_loss_coef`,`5`,L1 box coefficient
+`enc_layers`,`1`,Number of layers in Perceiver encoder
+`enc_nheads_cross`,`1`,Number of cross-attention heads
+`eos_coef`,`0.1`,Relative classification weight of the no-object class
+`epochs`,`32`,Number of training epochs
+`giou_loss_coef`,`2`,GIoU box coefficient
+`hidden_dim`,`128`,Latent dimension size
+`learning_rate`,`1e-05`,Learning rate
+`learning_rate_backbone`,`1e-05`,Learning rate
+`max_freq`,`10`,Maximum frequency for Fourier encoding
+`nheads`,`1`,Number of latent self-attention heads
+`num_frames`,`20`,Number of frames.
+`num_freq_bands`,`6`,Number of frequency bands for Fourier encoding
+`num_queries`,`16`,"Number of latents, or induced set points, or centroids"
+`object_detection`,`True`,Use object detection prediction head
+`resize_frame`,`320`,Resize frame to this size
+`scheduler_step_size`,`28`,Scheduler step size
+`self_per_cross_attn`,`1`,Number of self-attention blocks per cross-attention block
+`set_cost_bbox`,`5`,L1 box coefficient in the matching cost
+`set_cost_class`,`1`,Class coefficient in the matching cost
+`set_cost_giou`,`2`,giou box coefficient in the matching cost
+`weight_decay`,`0.01`,Weight decay for optimizer
+`weight_loss_bce`,`1`,Weight loss binary cross entropy
+`weight_loss_center_point`,`5`,Weight loss center point
