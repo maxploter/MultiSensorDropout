@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from datasets import load_dataset
-from detection_moving_mnist.mmnist.trajectory import SimpleLinearTrajectory, BouncingTrajectory
+from detection_moving_mnist.mmnist.trajectory import SimpleLinearTrajectory, NonLinearTrajectory
 
 from dataset.detection_moving_mnist_easy import DetectionMovingMNISTEasyWrapper, \
 	make_mmist_transforms as make_mmist_transforms_detection
@@ -19,9 +19,17 @@ CONFIGS = {
 		"shear": (0, 0),  # No deformation on z-axis
 		"num_digits": (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
 	},
+	"medium": {
+		"angle": (0, 0),  # No rotation
+		"translate": ((-5, 5), (-5, 5)),
+		"scale": (1, 1),  # No scaling
+		"shear": (0, 0),  # No deformation on z-axis
+		"num_digits": (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+	},
 }
 TRAJECTORIES = {
 	"easy": SimpleLinearTrajectory,
+	'medium': NonLinearTrajectory,
 }
 
 
@@ -29,11 +37,12 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	dataset_name = args.dataset.lower()
 	assert dataset_name.startswith('moving-mnist')
 
-	if args.generate_dataset_runtime and split == 'train':
+	if args.generate_dataset_runtime:
 		is_overlap_free = not args.random_digits_placement
-		print(f"Generating {split} dynamic MovingMNIST dataset... Overlap free {is_overlap_free}")
-		affine_params = SimpleNamespace(**CONFIGS['easy'])
-		trajectory = TRAJECTORIES['easy']
+		version = dataset_name[len('moving-mnist-'):].lower()
+		affine_params = SimpleNamespace(**CONFIGS[version])
+		trajectory = TRAJECTORIES[version]
+		print(f"Generating {split} dynamic MovingMNIST dataset version {version}... Overlap free {is_overlap_free}")
 		dataset = MovingMNISTDynamicAdapter(
 			dynamic_dataset=MovingMNIST(
 				trajectory=trajectory,
@@ -48,7 +57,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 			detection=args.object_detection
 		)
 	else:
-		print(f"Generating {split} huggingface MovingMNIST dataset...")
+		print(f"Generating {split} huggingface MovingMNIST dataset {args.dataset_path}...")
 		# Load Hugging Face dataset split
 		hf_dataset = load_dataset(args.dataset_path, split=split)
 		dataset = MovingMNISTHuggingFaceAdapter(hf_dataset, num_frames=args.num_frames, detection=args.object_detection)
