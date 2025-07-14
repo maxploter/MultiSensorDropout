@@ -37,7 +37,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	dataset_name = args.dataset.lower()
 	assert dataset_name.startswith('moving-mnist')
 
-	if args.generate_dataset_runtime:
+	if args.generate_dataset_runtime and split == 'train':
 		is_overlap_free = not args.random_digits_placement
 		version = dataset_name[len('moving-mnist-'):].lower()
 		affine_params = SimpleNamespace(**CONFIGS[version])
