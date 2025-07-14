@@ -268,7 +268,6 @@ class YOLOBackboneWrapper(nn.Module):
         if YOLO is None:
             raise ImportError("Ultralytics YOLO is not installed.")
         self.yolo = YOLO(model_path)
-        print(self.yolo.info(detailed=True))
         if target_layer_index is None:
             target_layer_index = len(self.yolo.model.model) - 2
         self.target_layer_index = target_layer_index
@@ -286,7 +285,6 @@ class YOLOBackboneWrapper(nn.Module):
         """
         for idx, layer in enumerate(self.yolo.model.model):
             requires_grad = idx <= self.target_layer_index
-            print(f"Setting requires_grad={requires_grad} for layer {idx}: {layer.__class__.__name__}")
             for param in layer.parameters(recurse=True):
                 param.requires_grad = requires_grad
 
