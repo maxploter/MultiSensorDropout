@@ -35,6 +35,7 @@ output_dir="not_tracked_dir/output_${model}_detection_${timestamp}"
 resume=''
 wandb_id=''
 dataset_path='Max-Ploter/detection-moving-mnist-easy'
+dataset='moving-mnist-medium'
 backbone='cnn'
 
 self_per_cross_attn=1
@@ -62,6 +63,7 @@ while [[ "$#" -gt 0 ]]; do
     --backbone) backbone="$2"; shift ;;
     --epochs) epochs="$2"; shift ;;
     --dataset_path) dataset_path="$2"; shift ;;
+    --dataset) dataset="$2"; shift ;;
     --num_frames) num_frames="$2"; shift ;;
     --self_per_cross_attn) self_per_cross_attn="$2"; shift ;;
     --hidden_dim) hidden_dim="$2"; shift ;;
@@ -92,6 +94,7 @@ python_command="python train.py \
     --object_detection \
     --generate_dataset_runtime \
     --dataset_path $dataset_path \
+    --dataset $dataset \
     --epochs $epochs \
     --dropout $dropout \
     --eval_interval $eval_interval \
