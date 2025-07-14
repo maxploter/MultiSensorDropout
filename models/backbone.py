@@ -4,6 +4,17 @@ from torchvision.models._utils import IntermediateLayerGetter
 from torchvision.ops import FrozenBatchNorm2d
 import torch
 
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None
+
+# Add YOLO backbone import (adjust as needed for your YOLO implementation)
+try:
+    from ultralytics.nn.tasks import DetectionModel as YOLOBackbone
+except ImportError:
+    YOLOBackbone = None  # Fallback if ultralytics is not installed
+
 
 class BackboneBase(nn.Module):
 
@@ -240,7 +251,77 @@ class BackboneIdentity(nn.Module):
     def forward(self, x):
         return x
 
+# --- YOLO backbone feature map hook support ---
+FEATURE_MAPS = None  # Global variable to store feature maps from the hook
+
+def yolo_feature_hook(module, input, output):
+    global FEATURE_MAPS
+    FEATURE_MAPS = output
+
+class YOLOBackboneWrapper(nn.Module):
+    """
+    Wrapper for Ultralytics YOLOv8 backbone for feature extraction using a forward hook.
+    Thread/process safe: feature maps are stored as an instance attribute.
+    """
+    def __init__(self, model_path='yolov8n.pt', input_image_view_size=(320, 320), target_layer_index=None):
+        super().__init__()
+        if YOLO is None:
+            raise ImportError("Ultralytics YOLO is not installed.")
+        self.yolo = YOLO(model_path)
+        print(self.yolo.info(detailed=True))
+        if target_layer_index is None:
+            target_layer_index = len(self.yolo.model.model) - 2
+        self.target_layer_index = target_layer_index
+        self.feature_maps = None  # Instance attribute for thread/process safety
+        self._register_hook()
+        self.num_channels = 256
+        h, w = input_image_view_size
+        self.output_size = (h // 32, w // 32)
+        self.set_yolo_requires_grad()  # <-- Set requires_grad as requested
+
+    def set_yolo_requires_grad(self):
+        """
+        Sets requires_grad=True for all parameters with index <= self.target_layer_index,
+        and requires_grad=False for all others.
+        """
+        for idx, layer in enumerate(self.yolo.model.model):
+            requires_grad = idx <= self.target_layer_index
+            print(f"Setting requires_grad={requires_grad} for layer {idx}: {layer.__class__.__name__}")
+            for param in layer.parameters(recurse=True):
+                param.requires_grad = requires_grad
+
+    def _feature_hook(self, module, input, output):
+        self.feature_maps = output
+
+    def _register_hook(self):
+        target_layer = self.yolo.model.model[self.target_layer_index]
+        target_layer.register_forward_hook(self._feature_hook)
+
+    def train(self, mode=True):
+        self.yolo.model.train()
+        return self
+
+    def forward(self, x):
+        self.feature_maps = None  # Reset before forward
+        if x.shape[1] == 1:
+            x = x.repeat(1, 3, 1, 1)
+        _ = self.yolo.model(x)
+        out = self.feature_maps
+        if out is None:
+            raise RuntimeError("Feature maps not captured. Check target_layer_index and hook registration.")
+        return out
+
 def build_backbone(args, input_image_view_size):
+    if args.backbone == 'yolo':
+        if YOLO is None:
+            raise ImportError("YOLO backbone requested but ultralytics is not installed.")
+        print("Using YOLOv8 backbone for feature extraction")
+        model_path = getattr(args, 'yolo_model_path', 'yolov8n.pt')
+        # Allow target_layer_index to be set via args, default to second-to-last
+        target_layer_index = getattr(args, 'yolo_target_layer_index', None)
+        return YOLOBackboneWrapper(model_path=model_path, input_image_view_size=input_image_view_size,
+                                   target_layer_index=21)
+
     if 'resnet' in args.backbone:
         return Backbone(args.backbone, train_backbone=True, return_interm_layers=False, input_image_view_size=input_image_view_size)
 
