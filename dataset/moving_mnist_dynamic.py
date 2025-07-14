@@ -17,7 +17,7 @@ class MovingMNISTDynamicAdapter:
 		for t in targets:
 			if self.detection:
 				targets_result.append({
-					'boxes': torch.tensor(t['bboxes'], dtype=torch.int64),
+					'boxes': torch.tensor(t['bboxes'], dtype=torch.float32),
 					'labels': torch.tensor(t['bboxes_labels'], dtype=torch.int64),
 					'orig_size': torch.tensor([128,128], dtype=torch.int64), # TODO: fix this
 				})

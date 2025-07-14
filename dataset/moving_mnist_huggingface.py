@@ -19,7 +19,7 @@ class MovingMNISTHuggingFaceAdapter:
 		for i in range(self.num_frames):
 			if self.detection:
 				targets.append({
-					'boxes': torch.tensor(sample['bboxes'][i], dtype=torch.int64),
+					'boxes': torch.tensor(sample['bboxes'][i], dtype=torch.float),
 					'labels': torch.tensor(sample['bboxes_labels'][i], dtype=torch.int64),
 					'orig_size': torch.tensor([128,128], dtype=torch.int64), # TODO: fix this
 				})
