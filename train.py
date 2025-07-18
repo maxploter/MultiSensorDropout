@@ -148,7 +148,7 @@ def main(args):
 
     if args.distributed:
         sampler_train = DistributedSampler(dataset_train)
-        sampler_val = DistributedSampler(dataset_test, shuffle=False)
+        sampler_test = DistributedSampler(dataset_test, shuffle=False)
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_test = torch.utils.data.SequentialSampler(dataset_test)
