@@ -52,7 +52,6 @@ epochs=18
 dropout=0.0
 enc_layers=1
 resize_frame=''
-random_digits_placement=''
 max_freq=10
 num_freq_bands=6
 
@@ -82,7 +81,6 @@ while [[ "$#" -gt 0 ]]; do
     --resize_frame) resize_frame="$2"; shift ;;
     --max_freq) max_freq="$2"; shift ;;
     --num_freq_bands) num_freq_bands="$2"; shift ;;
-    --random_digits_placement) random_digits_placement="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -120,11 +118,6 @@ fi
 # Conditionally add --resume
 if [[ -n "$resume" ]]; then
     python_command="$python_command --resume $resume --wandb_id $wandb_id"
-fi
-
-# Conditionally add --random_digits_placement
-if [[ -n "$random_digits_placement" ]]; then
-    python_command="$python_command --random_digits_placement"
 fi
 
 # Execute the python command
