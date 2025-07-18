@@ -168,7 +168,7 @@ def main(args):
 
     # Model, criterion, optimizer, and scheduler
     model = build_model(args, dataset_train.input_image_view_size)
-
+    model = model.to(device)
     model_without_ddp = model
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
@@ -229,8 +229,6 @@ def main(args):
             best_val_loss = checkpoint['best_val_loss']
         else:
             start_epoch = checkpoint['epoch'] # eval epoch
-
-    model = model.to(device)
 
     for state in optimizer.state.values():
         for k, v in state.items():
