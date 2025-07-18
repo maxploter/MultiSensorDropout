@@ -104,6 +104,11 @@ def _get_parser():
 
     # LSTM model specific arguments
     parser.add_argument('--lstm_hidden_size', type=int, default=128, help='Hidden size of LSTM')
+
+    # distributed training parameters
+    parser.add_argument('--world_size', default=1, type=int,
+                        help='number of distributed processes')
+    parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     return parser
 
 def parse_args():
