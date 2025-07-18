@@ -9,7 +9,6 @@
 # Resource allocation
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
-#SBATCH --gpus-per-task 1
 #SBATCH --mem=16G
 
 # Node configurations (commented out)
@@ -105,7 +104,7 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-python_command="slurm python train.py \
+python_command="srun python train.py \
     --model $model \
     --backbone $backbone \
     --object_detection \
