@@ -79,7 +79,6 @@ def _get_parser():
                         default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
     parser.add_argument('--sampler_steps', nargs='*', type=int,
                         default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], help='Sampler steps')
-    parser.add_argument('--sequential_sampler', action='store_true')
     parser.add_argument('--grid_size', type=int, nargs=2, default=(1,1),
                         help='Grid size for splitting frames into tiles (rows, cols)')
     parser.add_argument('--tile_overlap', type=float, default=0.0,
@@ -140,10 +139,7 @@ def main(args):
     dataset_train = build_dataset('train', args)
     dataset_test = build_dataset('test', args)
 
-    if args.sequential_sampler:
-        sampler_train = torch.utils.data.SequentialSampler(dataset_train)
-    else:
-        sampler_train = torch.utils.data.RandomSampler(dataset_train)
+    sampler_train = torch.utils.data.RandomSampler(dataset_train)
     sampler_test = torch.utils.data.SequentialSampler(dataset_test)
 
     dataloader_train = DataLoader(dataset_train, sampler=sampler_train, batch_size=args.batch_size,
@@ -365,9 +361,6 @@ def get_wandb_init_config(args):
             notes += f',focal_loss'
         if args.shuffle_views:
             notes += f',shuffle_views'
-
-        if args.sequential_sampler:
-            notes += f',sequential_sampler'
 
         if args.generate_dataset_runtime:
             notes += f',generate_dataset_runtime'
