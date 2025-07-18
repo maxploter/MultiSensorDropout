@@ -53,6 +53,7 @@ epochs=18
 dropout=0.0
 enc_layers=1
 resize_frame=''
+generate_dataset_runtime=''
 max_freq=10
 num_freq_bands=6
 
@@ -98,6 +99,7 @@ while [[ "$#" -gt 0 ]]; do
     --resize_frame) resize_frame="$2"; shift ;;
     --max_freq) max_freq="$2"; shift ;;
     --num_freq_bands) num_freq_bands="$2"; shift ;;
+    --generate_dataset_runtime) generate_dataset_runtime="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -107,7 +109,6 @@ python_command="slurm python train.py \
     --model $model \
     --backbone $backbone \
     --object_detection \
-    --generate_dataset_runtime \
     --dataset_path $dataset_path \
     --dataset $dataset \
     --epochs $epochs \
@@ -131,6 +132,10 @@ python_command="slurm python train.py \
 
 if [[ -n "$resize_frame" ]]; then
     python_command="$python_command --resize_frame $resize_frame"
+fi
+
+if [[ -n "$generate_dataset_runtime" ]]; then
+    python_command="$python_command --generate_dataset_runtime"
 fi
 
 # Conditionally add --resume
