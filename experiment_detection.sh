@@ -8,12 +8,13 @@
 
 # Resource allocation
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=2
+#SBATCH --gpus-per-task 1
 #SBATCH --mem=16G
 
 # Node configurations (commented out)
 ## falcone configurations
-#SBATCH --gres=gpu:tesla:1
+#SBATCH --gres=gpu:tesla:2
 #SBATCH --cpus-per-task=4
 
 ## Pegasus configuration
@@ -52,9 +53,24 @@ epochs=18
 dropout=0.0
 enc_layers=1
 resize_frame=''
-random_digits_placement=''
 max_freq=10
 num_freq_bands=6
+
+master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_ADDR=$master_addr
+echo "MASTER_ADDR="$MASTER_ADDR
+
+export MASTER_PORT=12381
+
+export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
+echo "WORLD_SIZE="$WORLD_SIZE
+
+echo SLURM_PROCID=$SLURM_PROCID
+echo RANK=$RANK
+echo output_dir=$output_dir
+echo OMP_NUM_THREADS=$OMP_NUM_THREADS
+
+export NCCL_DEBUG=INFO
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -82,13 +98,12 @@ while [[ "$#" -gt 0 ]]; do
     --resize_frame) resize_frame="$2"; shift ;;
     --max_freq) max_freq="$2"; shift ;;
     --num_freq_bands) num_freq_bands="$2"; shift ;;
-    --random_digits_placement) random_digits_placement="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
 done
 
-python_command="python train.py \
+python_command="slurm python train.py \
     --model $model \
     --backbone $backbone \
     --object_detection \
@@ -111,7 +126,8 @@ python_command="python train.py \
     --num_queries $num_queries \
     --max_freq $max_freq \
     --num_freq_bands $num_freq_bands \
-    --scheduler_step_size $scheduler_step_size"
+    --scheduler_step_size $scheduler_step_size \
+    --world_size $WORLD_SIZE"
 
 if [[ -n "$resize_frame" ]]; then
     python_command="$python_command --resize_frame $resize_frame"
@@ -120,11 +136,6 @@ fi
 # Conditionally add --resume
 if [[ -n "$resume" ]]; then
     python_command="$python_command --resume $resume --wandb_id $wandb_id"
-fi
-
-# Conditionally add --random_digits_placement
-if [[ -n "$random_digits_placement" ]]; then
-    python_command="$python_command --random_digits_placement"
 fi
 
 # Execute the python command

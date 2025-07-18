@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import yaml
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 
 import wandb
 from dataset import build_dataset
@@ -19,6 +19,7 @@ from models.ade_post_processor import PostProcessTrajectory, MultiHeadPostProces
 from models.perceiver import PostProcess
 from models.set_criterion import build_criterion
 from util.misc import collate_fn, is_main_process, get_sha, get_rank
+import util.misc as utils
 
 def _get_parser():
     parser = argparse.ArgumentParser(description="Train MultiSensor dropout")
@@ -41,7 +42,6 @@ def _get_parser():
     parser.add_argument('--shuffle_views', action='store_true', help='Shuffle views during inference')
     parser.add_argument('--object_detection', action='store_true', help='Use object detection prediction head')
     parser.add_argument('--resize_frame', type=int, help='Resize frame to this size')
-    parser.add_argument('--random_digits_placement', action='store_true')
 
     # * Matcher
     parser.add_argument('--set_cost_class', default=1, type=float,
@@ -80,7 +80,6 @@ def _get_parser():
                         default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
     parser.add_argument('--sampler_steps', nargs='*', type=int,
                         default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], help='Sampler steps')
-    parser.add_argument('--sequential_sampler', action='store_true')
     parser.add_argument('--grid_size', type=int, nargs=2, default=(1,1),
                         help='Grid size for splitting frames into tiles (rows, cols)')
     parser.add_argument('--tile_overlap', type=float, default=0.0,
@@ -113,7 +112,7 @@ def parse_args():
     return args
 
 def main(args):
-
+    utils.init_distributed_mode(args)
     print(args)
 
     print("git:\n  {}\n".format(get_sha()))
@@ -123,15 +122,16 @@ def main(args):
         wandb.init(**get_wandb_init_config(args))
 
     # Set seeds for reproducibility
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    seed = args.seed + utils.get_rank()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
     device = torch.device(args.device)
 
     # Paths and directories
     output_dir = Path(args.output_dir)
-    if args.output_dir and not args.eval:
+    if args.output_dir and not args.eval and utils.is_main_process():
         output_dir.mkdir(parents=True, exist_ok=True)
         yaml.dump(
             vars(args),
@@ -141,11 +141,12 @@ def main(args):
     dataset_train = build_dataset('train', args)
     dataset_test = build_dataset('test', args)
 
-    if args.sequential_sampler:
-        sampler_train = torch.utils.data.SequentialSampler(dataset_train)
+    if args.distributed:
+        sampler_train = DistributedSampler(dataset_train)
+        sampler_val = DistributedSampler(dataset_test, shuffle=False)
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
-    sampler_test = torch.utils.data.SequentialSampler(dataset_test)
+        sampler_test = torch.utils.data.SequentialSampler(dataset_test)
 
     dataloader_train = DataLoader(dataset_train, sampler=sampler_train, batch_size=args.batch_size,
                                   collate_fn=collate_fn, num_workers=args.num_workers, pin_memory=True)
@@ -162,6 +163,12 @@ def main(args):
 
     # Model, criterion, optimizer, and scheduler
     model = build_model(args, dataset_train.input_image_view_size)
+
+    model_without_ddp = model
+    if args.distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+
     if args.object_detection:
         postprocessors = {'bbox': PostProcess()}
     else:
@@ -178,11 +185,11 @@ def main(args):
 
     param_dicts = [
         {
-            "params": [p for n, p in model.named_parameters() if not match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
+            "params": [p for n, p in model_without_ddp.named_parameters() if not match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
             "lr": args.learning_rate
         },
         {
-            "params": [p for n, p in model.named_parameters() if match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
+            "params": [p for n, p in model_without_ddp.named_parameters() if match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
             "lr": args.learning_rate_backbone,
         },
     ]
@@ -202,7 +209,7 @@ def main(args):
         checkpoint_path = output_dir / args.resume
         print(f'Resuming from {checkpoint_path}')
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
-        model.load_state_dict(checkpoint['model'])
+        model_without_ddp.load_state_dict(checkpoint['model'])
 
         if not args.eval:
             optimizer.load_state_dict(checkpoint['optimizer'])
@@ -266,6 +273,8 @@ def main(args):
         return
 
     for epoch in range(start_epoch, args.epochs):
+        if args.distributed:
+            sampler_train.set_epoch(epoch)
         train_stats = train_one_epoch(model, dataloader_train, optimizer, criterion, epoch, device)
 
         blind_stats = {}
@@ -289,7 +298,7 @@ def main(args):
             'view_dropout_prob': dataset_train.view_dropout_prob,
         }
 
-        if output_dir:
+        if output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
@@ -298,8 +307,9 @@ def main(args):
             wandb.log(log_stats, step=epoch)
 
         if val_loss < best_val_loss or epoch % 2 == 0 or epoch + 1 == args.epochs:
-            torch.save({
-                'model': model.state_dict(),
+            utils.save_on_master(
+            {
+                'model': model_without_ddp.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'epoch': epoch,
@@ -364,13 +374,8 @@ def get_wandb_init_config(args):
 
         if args.focal_loss:
             notes += f',focal_loss'
-        if args.random_digits_placement:
-            notes += f',random_digits_placement'
         if args.shuffle_views:
             notes += f',shuffle_views'
-
-        if args.sequential_sampler:
-            notes += f',sequential_sampler'
 
         if args.generate_dataset_runtime:
             notes += f',generate_dataset_runtime'

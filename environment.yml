@@ -11,4 +11,4 @@ dependencies:
   - conda-forge::datasets
   - conda-forge::ultralytics
   - pip:
-      - detection-moving-mnist==0.4.2
+      - detection-moving-mnist==0.4.3
