@@ -36,9 +36,9 @@ TRAJECTORIES = {
 def build_dataset(split, args, frame_dropout_pattern=None):
 	dataset_name = args.dataset.lower()
 	assert dataset_name.startswith('moving-mnist')
+	version = dataset_name[len('moving-mnist-'):].lower()
 
 	if args.generate_dataset_runtime and split == 'train':
-		version = dataset_name[len('moving-mnist-'):].lower()
 		affine_params = SimpleNamespace(**CONFIGS[version])
 		trajectory = TRAJECTORIES[version]
 		print(f"Generating {split} dynamic MovingMNIST dataset version {version}...")
@@ -69,7 +69,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 
 	if args.object_detection:
 		print("Using object detection mode")
-		transforms, norm_transforms = make_mmist_transforms_detection(args)
+		transforms, norm_transforms = make_mmist_transforms_detection(args, version)
 		return DetectionMovingMNISTEasyWrapper(
 			dataset=dataset,
 			transforms=transforms,
