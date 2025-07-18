@@ -6,14 +6,24 @@ from torch.utils.data import Dataset
 from dataset.transformations import Compose, TilingTransform, ViewDropoutTransform, ToCenterCoordinateSystemTransform, \
 	NormBoxesTransform, RandomResize
 
-mmnist_stat = (
-	[
-		0.023958550628466375
-	],
-	[
-		0.14140212075592035
-	]
-)  # mean, std
+mmnist_stat = {
+	'easy': (
+		[
+			0.023958550628466375
+		],
+		[
+			0.14140212075592035
+		]
+	),
+	'medium': (
+		[
+			0.030643088476670285
+		],
+		[
+			0.15920598247588932
+		]
+	)
+}  # mean, std
 
 
 class DetectionMovingMNISTEasyWrapper(Dataset):
@@ -55,10 +65,10 @@ class DetectionMovingMNISTEasyWrapper(Dataset):
 		return video, targets
 
 
-def make_mmist_transforms(args):
+def make_mmist_transforms(args, version):
 	norm_transforms = T.Compose([
 		T.ConvertImageDtype(torch.float32),
-		T.Normalize(*mmnist_stat)
+		T.Normalize(*mmnist_stat[version])
 	])
 
 	transforms_list = []
