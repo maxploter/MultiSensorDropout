@@ -5,6 +5,7 @@ from collections import defaultdict
 import torch
 import torchmetrics
 from tqdm import tqdm
+import util.misc as utils
 
 from models.ade_post_processor import AverageDisplacementErrorEvaluator, MultiHeadPostProcessTrajectory, \
     MultiHeadAverageDisplacementErrorEvaluator
@@ -36,18 +37,19 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
         weight_dict = criterion.weight_dict
         losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
-        # Logic related to reduce
-        loss_dict_unscaled = {
-            f'{k}_unscaled': v for k, v in loss_dict.items()}
-        loss_dict_scaled = {
-            k: v * weight_dict[k] for k, v in loss_dict.items() if k in weight_dict}
-        losses_scaled = sum(loss_dict_scaled.values())
+        # reduce losses over all GPUs for logging purposes
+        loss_dict_reduced = utils.reduce_dict(loss_dict)
+        loss_dict_reduced_unscaled = {f'{k}_unscaled': v
+                                      for k, v in loss_dict_reduced.items()}
+        loss_dict_reduced_scaled = {k: v * weight_dict[k]
+                                    for k, v in loss_dict_reduced.items() if k in weight_dict}
+        losses_reduced_scaled = sum(loss_dict_reduced_scaled.values())
 
-        loss_value = losses_scaled.item()
+        loss_value = losses_reduced_scaled.item()
 
         if not math.isfinite(loss_value):
-            print(f"Loss is {loss_value}, stopping training")
-            print(loss_dict)
+            print("Loss is {}, stopping training".format(loss_value))
+            print(loss_dict_reduced)
             sys.exit(1)
 
         # Backpropagation and optimization
@@ -60,20 +62,20 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
         metric_logger['loss'].update(loss_value)
         metric_logger['loss_running'].update(loss_value)
 
-        if 'class_error' in loss_dict:
-            metric_logger["class_error"].update(loss_dict['class_error'].item())
-            metric_logger["class_error_running"].update(loss_dict['class_error'].item())
+        if 'class_error' in loss_dict_reduced:
+            metric_logger["class_error"].update(loss_dict_reduced['class_error'].item())
+            metric_logger["class_error_running"].update(loss_dict_reduced['class_error'].item())
 
-        for k, v in loss_dict_unscaled.items():
+        for k, v in loss_dict_reduced_unscaled.items():
             if k == 'class_error_unscaled':
                 continue
             metric_logger[k].update(v.item())
-        for k, v in loss_dict_scaled.items():
+        for k, v in losses_reduced_scaled.items():
             metric_logger[k].update(v.item())
             if f'{k}_running' in metric_logger:
                 metric_logger[f'{k}_running'].update(v.item())
 
-        for k, v in loss_dict.items():
+        for k, v in loss_dict_reduced.items():
             if 'binary_precision' in k or 'binary_recall' in k or 'binary_f1' in k:
                 metric_logger[k].update(loss_dict[k].item())
 
@@ -147,12 +149,15 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device, evalua
             weight_dict = criterion.weight_dict
             losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
-            # Logic related to reduce
-            loss_dict_unscaled = {
-                f'{k}_unscaled': v for k, v in loss_dict.items()}
-            loss_dict_scaled = {
-                k: v * weight_dict[k] for k, v in loss_dict.items() if k in weight_dict}
-            losses_scaled = sum(loss_dict_scaled.values())
+            # reduce losses over all GPUs for logging purposes
+            loss_dict_reduced = utils.reduce_dict(loss_dict)
+            loss_dict_reduced_scaled = {k: v * weight_dict[k]
+                                        for k, v in loss_dict_reduced.items() if k in weight_dict}
+            loss_dict_reduced_unscaled = {f'{k}_unscaled': v
+                                          for k, v in loss_dict_reduced.items()}
+
+
+            losses_scaled = sum(loss_dict_reduced_scaled.values())
 
             loss_value = losses_scaled.item()
 
@@ -163,11 +168,11 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device, evalua
                 metric_logger["class_error"].update(loss_dict['class_error'].item())
                 metric_logger["class_error_running"].update(loss_dict['class_error'].item())
 
-            for k, v in loss_dict_unscaled.items():
+            for k, v in loss_dict_reduced_unscaled.items():
                 if k == 'class_error_unscaled':
                     continue
                 metric_logger[k].update(v.item())
-            for k, v in loss_dict_scaled.items():
+            for k, v in loss_dict_reduced_scaled.items():
                 metric_logger[k].update(v.item())
                 if f'{k}_running' in metric_logger:
                     metric_logger[f'{k}_running'].update(v.item())

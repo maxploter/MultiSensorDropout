@@ -5,7 +5,7 @@ from torchmetrics import Precision, Recall, F1Score
 
 from models.matcher import build_matcher
 from util import box_ops
-from util.misc import sigmoid_focal_loss, accuracy, is_multi_head_fn, get_world_size
+from util.misc import sigmoid_focal_loss, accuracy, is_multi_head_fn, get_world_size, is_dist_avail_and_initialized
 
 
 class SetCriterion(nn.Module):
@@ -494,8 +494,8 @@ class BoxSetCriterion(nn.Module):
         num_boxes = sum(len(t["labels"]) for t in targets)
         num_boxes = torch.as_tensor(
             [num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
-        # if is_dist_avail_and_initialized():
-        #     torch.distributed.all_reduce(num_boxes)
+        if is_dist_avail_and_initialized():
+            torch.distributed.all_reduce(num_boxes)
         num_boxes = torch.clamp(num_boxes / get_world_size(), min=1).item()
 
         # Compute all the requested losses
