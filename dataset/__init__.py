@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 from datasets import load_dataset
-from detection_moving_mnist.mmnist.trajectory import SimpleLinearTrajectory, NonLinearTrajectory
 
 from dataset.detection_moving_mnist_easy import DetectionMovingMNISTEasyWrapper, \
 	make_mmist_transforms as make_mmist_transforms_detection
@@ -27,10 +26,7 @@ CONFIGS = {
 		"num_digits": (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
 	},
 }
-TRAJECTORIES = {
-	"easy": SimpleLinearTrajectory,
-	'medium': NonLinearTrajectory,
-}
+
 
 
 def build_dataset(split, args, frame_dropout_pattern=None):
@@ -39,7 +35,14 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	version = dataset_name[len('moving-mnist-'):].lower()
 
 	if args.generate_dataset_runtime and split == 'train':
+		from detection_moving_mnist.mmnist.trajectory import SimpleLinearTrajectory, NonLinearTrajectory
 		affine_params = SimpleNamespace(**CONFIGS[version])
+
+		TRAJECTORIES = {
+			"easy": SimpleLinearTrajectory,
+			'medium': NonLinearTrajectory,
+		}
+
 		trajectory = TRAJECTORIES[version]
 		print(f"Generating {split} dynamic MovingMNIST dataset version {version}...")
 		dataset = MovingMNISTDynamicAdapter(
