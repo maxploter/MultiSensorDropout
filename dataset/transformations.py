@@ -239,7 +239,7 @@ def resize(image, target, size, max_size=None):
 
 	# Resize the image/video tensor
 	# F.resize expects size argument as [h, w] list or tuple
-	rescaled_image = F.resize(image, list(new_size_hw))
+	rescaled_image = F.resize(image, list(new_size_hw), interpolation=T.InterpolationMode.NEAREST_EXACT)
 
 	if target is None:
 		return rescaled_image, None
