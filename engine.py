@@ -70,7 +70,7 @@ def train_one_epoch(model, dataloader, optimizer, criterion, epoch, device):
             if k == 'class_error_unscaled':
                 continue
             metric_logger[k].update(v.item())
-        for k, v in losses_reduced_scaled.items():
+        for k, v in loss_dict_reduced_scaled.items():
             metric_logger[k].update(v.item())
             if f'{k}_running' in metric_logger:
                 metric_logger[f'{k}_running'].update(v.item())
