@@ -1,8 +1,12 @@
+import torch.nn as nn
+import torch
+from einops import rearrange
+
 from models.autoregressive_module import build_perceiver_ar_model, AutoRegressiveModule, RecurrentVideoObjectModule
 from models.backbone import build_backbone
 from models.center_point_conv_lstm import CenterPointConvLSTM
 from models.center_point_lstm import CenterPointLSTM
-from models.perceiver import build_model_perceiver, CenterPointDetectionHead
+from models.perceiver import build_model_perceiver, CenterPointDetectionHead, ObjectDetectionHead
 from models.perceiver_with_lstm import PerceiverWithLstm
 
 
@@ -66,6 +70,22 @@ def build_model(args, input_image_view_size):
 	elif args.model == 'perceiver':
 		backbone, recurrent_module, detection_head = build_model_perceiver(
 			args, num_classes=num_classes, input_image_view_size=input_image_view_size)
+	elif args.model == 'non-recurrent':
+		print("Using non-recurrent model")
+		backbone = build_backbone(args, input_image_view_size=input_image_view_size)
+
+		class Identity(nn.Module):
+			def __init__(self) -> None:
+				super().__init__()
+			def forward(self, data: torch.Tensor, **kwargs) -> torch.Tensor:
+				data = rearrange(data, 'b ... d -> b (...) d')
+				return data
+
+		recurrent_module = Identity()
+		detection_head = ObjectDetectionHead(
+			num_classes=num_classes,
+			latent_dim=backbone.num_channels
+		)
 	else:
 		raise NotImplementedError(f"Model {args.model} not implemented.")
 
