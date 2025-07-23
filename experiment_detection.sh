@@ -9,7 +9,7 @@
 # Resource allocation
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 
 # Node configurations (commented out)
 ## falcone configurations
