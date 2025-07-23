@@ -2,7 +2,7 @@
 
 #SBATCH -A bolt
 #SBATCH --job-name="bolt-multi-sensor-detection"
-#SBATCH --time=24:00:00
+#SBATCH --time=33:00:00
 #SBATCH --partition=gpu
 #SBATCH --output=not_tracked_dir/slurm/%j_slurm_%x.out
 
