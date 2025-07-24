@@ -55,6 +55,7 @@ resize_frame=''
 generate_dataset_runtime=''
 max_freq=10
 num_freq_bands=6
+yolo_feature_layers='4, 6, 9'
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
@@ -100,6 +101,7 @@ while [[ "$#" -gt 0 ]]; do
     --max_freq) max_freq="$2"; shift ;;
     --num_freq_bands) num_freq_bands="$2"; shift ;;
     --generate_dataset_runtime) generate_dataset_runtime="$2"; shift ;;
+    --yolo_feature_layers) yolo_feature_layers="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -128,6 +130,7 @@ python_command="srun python train.py \
     --max_freq $max_freq \
     --num_freq_bands $num_freq_bands \
     --scheduler_step_size $scheduler_step_size \
+    --yolo_feature_layers $yolo_feature_layers \
     --world_size $WORLD_SIZE"
 
 if [[ -n "$resize_frame" ]]; then

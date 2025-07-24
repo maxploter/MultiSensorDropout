@@ -429,7 +429,7 @@ class YOLOFPNBackboneV2(nn.Module):
     and merges to a single feature map using weighted fusion.
     """
 
-    def __init__(self, model_path='yolov8n.pt', input_image_view_size=(320, 320)):
+    def __init__(self, model_path='yolov8n.pt', input_image_view_size=(320, 320), feature_layers=[4, 6, 9]):
         super().__init__()
         if YOLO is None:
             raise ImportError("Ultralytics YOLO is not installed.")
@@ -441,7 +441,7 @@ class YOLOFPNBackboneV2(nn.Module):
 
         # Define layers to extract features from (P3, P4, P5 equivalent layers)
         # Adjust these indices based on YOLOv8n architecture
-        self.feature_layers = [4, 6, 9]  # Example indices for different scales
+        self.feature_layers = feature_layers
         self.feature_hooks = []
         self.feature_maps = {}
 
@@ -560,7 +560,9 @@ def build_backbone(args, input_image_view_size):
             raise ImportError("YOLO backbone requested but ultralytics is not installed.")
         print("Using YOLOv8 with FPN v2 backbone")
         model_path = getattr(args, 'yolo_model_path', 'yolov8n.pt')
-        return YOLOFPNBackboneV2(model_path=model_path, input_image_view_size=input_image_view_size)
+        backbone_feature_layers = getattr(args, 'yolo_feature_layers', [4, 6, 9])
+
+        return YOLOFPNBackboneV2(model_path=model_path, input_image_view_size=input_image_view_size, feature_layers=backbone_feature_layers)
 
     if 'resnet' in args.backbone:
         return Backbone(args.backbone, train_backbone=True, return_interm_layers=False, input_image_view_size=input_image_view_size)
