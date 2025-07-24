@@ -55,7 +55,7 @@ resize_frame=''
 generate_dataset_runtime=''
 max_freq=10
 num_freq_bands=6
-yolo_feature_layers='4, 6, 9'
+yolo_feature_layers='4 6 9'
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
