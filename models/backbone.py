@@ -538,6 +538,119 @@ class YOLOFPNBackboneV2(nn.Module):
         return merged_features
 
 
+class YOLOFPNBackboneV3(nn.Module):
+    """
+    Backbone that combines YOLOv8n feature extraction with FPN.
+    Extracts multi-scale features from YOLO, processes through FPN,
+    and merges to a single feature map using weighted fusion.
+    """
+
+    def __init__(self, model_path='yolov8n.pt', input_image_view_size=(320, 320)):
+        super().__init__()
+        if YOLO is None:
+            raise ImportError("Ultralytics YOLO is not installed.")
+
+        # Initialize YOLO model
+        self.yolo = YOLO(model_path)
+        self.yolo.info(detailed=True, verbose=True)
+        self.model = self.yolo.model
+
+        # Define layers to extract features from (P3, P4, P5 equivalent layers)
+        # Adjust these indices based on YOLOv8n architecture
+        self.feature_layers = [15, 18, 21]  # Example indices for different scales
+        self.feature_hooks = []
+        self.feature_maps = {}
+        in_channels_list = [64, 128, 256]  # Adjust based on actual channel counts
+        self.num_channels = 256
+
+        # Channel projection layers - convert each feature map to same channel count
+        self.projection_layers = nn.ModuleDict()
+        for idx, in_channels in zip(self.feature_layers, in_channels_list):
+            # We need to determine the number of channels for each layer
+            # This will be filled during the first forward pass
+            self.projection_layers[str(idx)] = nn.Conv2d(in_channels=in_channels, out_channels=self.num_channels, kernel_size=1)
+
+        # Register hooks to capture intermediate features
+        self._register_hooks()
+
+        # Output parameters
+        in_channels = 256 * len(self.feature_layers)  # 256 per FPN level
+
+        self.fusion_layer = nn.Sequential(
+            nn.Conv2d(in_channels=in_channels, out_channels=self.num_channels, kernel_size=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=self.num_channels, out_channels=self.num_channels, kernel_size=3, padding=1),
+            nn.ReLU()
+        )
+
+        h, w = input_image_view_size
+        self.output_size = (h // 32, w // 32)  # Adjust based on desired output resolution
+
+        # Set parameters trainable
+        self.set_requires_grad()
+
+    def _feature_hook(self, layer_idx):
+        def hook(module, input, output):
+            self.feature_maps[layer_idx] = output
+
+        return hook
+
+    def _register_hooks(self):
+        for idx in self.feature_layers:
+            layer = self.model.model[idx]
+            self.feature_hooks.append(layer.register_forward_hook(self._feature_hook(idx)))
+
+    def set_requires_grad(self, train_backbone=True):
+        """Configure which parts of the backbone are trainable"""
+        for idx, layer in enumerate(self.model.model):
+            # Only train up to the highest feature extraction layer
+            requires_grad = train_backbone and (idx <= max(self.feature_layers))
+            for param in layer.parameters(recurse=True):
+                param.requires_grad = requires_grad
+
+    def train(self, mode=True):
+        self.yolo.model.train()
+        return self
+
+    def forward(self, x):
+        # Reset feature maps
+        self.feature_maps = {}
+
+        # Handle grayscale inputs
+        if x.shape[1] == 1:
+            x = x.repeat(1, 3, 1, 1)
+
+        # Pass through YOLO backbone
+        _ = self.model(x)
+
+        # Check if all feature maps were captured
+        if len(self.feature_maps) != len(self.feature_layers):
+            missing = set(self.feature_layers) - set(self.feature_maps.keys())
+            raise RuntimeError(f"Not all feature maps were captured. Missing: {missing}")
+
+        # Project each feature map to the same channel dimension
+        projected_features = {}
+        for layer_idx, feat in self.feature_maps.items():
+            projected_features[layer_idx] = self.projection_layers[str(layer_idx)](feat)
+
+        # Get target size (using highest resolution feature map)
+        target_size = max([feat.shape[-2:] for feat in self.feature_maps.values()], key=lambda x: x[0] * x[1])
+
+        # Resize and concatenate all feature maps
+        resized_features = []
+        for feat in projected_features.values():
+            if feat.shape[-2:] != target_size:
+                feat = F.interpolate(feat, size=target_size, mode='nearest')
+            resized_features.append(feat)
+
+        # Concatenate along channel dimension
+        concat_features = torch.cat(resized_features, dim=1)
+
+        # Apply fusion convolution
+        merged_features = self.fusion_layer(concat_features)
+
+        return merged_features
+
 def build_backbone(args, input_image_view_size):
     if args.backbone == 'yolo':
         if YOLO is None:
@@ -561,6 +674,12 @@ def build_backbone(args, input_image_view_size):
         print("Using YOLOv8 with FPN v2 backbone")
         model_path = getattr(args, 'yolo_model_path', 'yolov8n.pt')
         return YOLOFPNBackboneV2(model_path=model_path, input_image_view_size=input_image_view_size)
+    if args.backbone == 'yolo-fpn-v3':
+        if YOLO is None:
+            raise ImportError("YOLO backbone requested but ultralytics is not installed.")
+        print("Using YOLOv8 with FPN v3 backbone")
+        model_path = getattr(args, 'yolo_model_path', 'yolov8n.pt')
+        return YOLOFPNBackboneV3(model_path=model_path, input_image_view_size=input_image_view_size)
 
     if 'resnet' in args.backbone:
         return Backbone(args.backbone, train_backbone=True, return_interm_layers=False, input_image_view_size=input_image_view_size)
