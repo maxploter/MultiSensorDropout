@@ -660,7 +660,7 @@ def build_backbone(args, input_image_view_size):
         # Allow target_layer_index to be set via args, default to second-to-last
         target_layer_index = getattr(args, 'yolo_target_layer_index', None)
         return YOLOBackboneWrapper(model_path=model_path, input_image_view_size=input_image_view_size,
-                                   target_layer_index=9)
+                                   target_layer_index=21)
     if args.backbone == 'yolo-fpn':
         if YOLO is None:
             raise ImportError("YOLO backbone requested but ultralytics is not installed.")
