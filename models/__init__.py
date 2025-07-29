@@ -88,6 +88,7 @@ def build_model(args, input_image_view_size):
 			latent_dim=backbone.num_channels
 		)
 	elif args.model == 'deformable-perceiver':
+		print("Using deformable perceiver model")
 		backbone, pre_model_hook, recurrent_module, detection_head = build_model_deformable_perceiver(
 			args, num_classes=num_classes, input_image_view_size=input_image_view_size
 		)
@@ -95,6 +96,7 @@ def build_model(args, input_image_view_size):
 		raise NotImplementedError(f"Model {args.model} not implemented.")
 
 	if args.object_detection:
+		print("Using object detection model")
 		model = RecurrentVideoObjectModule(
 			backbone=backbone,
 			pre_model_hook=pre_model_hook,
