@@ -412,7 +412,7 @@ class ObjectDetectionHead(nn.Module):
         hs, reference = data
         outputs_class = self.class_embed(hs)
         tmp = self.bbox_embed(hs)
-        tmp += reference
+        tmp[..., :2] += reference
         outputs_coord = tmp.sigmoid()
         out = {'pred_logits': outputs_class, 'pred_boxes': outputs_coord}
         return out
