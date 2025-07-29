@@ -34,7 +34,7 @@ def build_dataset(split, args, frame_dropout_pattern=None):
 	assert dataset_name.startswith('moving-mnist')
 	version = dataset_name[len('moving-mnist-'):].lower()
 
-	if args.generate_dataset_runtime:
+	if args.generate_dataset_runtime and split == 'train':
 		from detection_moving_mnist.mmnist.trajectory import SimpleLinearTrajectory, NonLinearTrajectory
 		affine_params = SimpleNamespace(**CONFIGS[version])
 

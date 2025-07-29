@@ -80,6 +80,7 @@ class RecurrentVideoObjectModule(nn.Module):
 
     def __init__(self,
                  backbone,
+                 pre_model_hook,
                  recurrent_module,
                  detection_head,
                  ):
@@ -88,6 +89,7 @@ class RecurrentVideoObjectModule(nn.Module):
         self.backbone = backbone
         self.recurrent_module = recurrent_module
         self.detection_head = detection_head
+        self.pre_model_hook = pre_model_hook
 
     def forward(self, samples, targets: list = None):
         src = samples.permute(1, 0, 2, 3, 4)  # change dimension order from BT___ to TB___
@@ -101,7 +103,7 @@ class RecurrentVideoObjectModule(nn.Module):
 
         for timestamp, batch in enumerate(src):
             batch = self.backbone(batch)
-            batch = batch.permute(0, 2, 3, 1)  # [B, H, W, C]
+            batch = self.pre_model_hook(batch)
 
             hs = self.recurrent_module(
                 data=batch,

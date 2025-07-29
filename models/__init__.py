@@ -6,6 +6,7 @@ from models.autoregressive_module import build_perceiver_ar_model, AutoRegressiv
 from models.backbone import build_backbone
 from models.center_point_conv_lstm import CenterPointConvLSTM
 from models.center_point_lstm import CenterPointLSTM
+from models.deformable_perceiver import build_model_deformable_perceiver
 from models.perceiver import build_model_perceiver, CenterPointDetectionHead, ObjectDetectionHead
 from models.perceiver_with_lstm import PerceiverWithLstm
 
@@ -13,7 +14,7 @@ from models.perceiver_with_lstm import PerceiverWithLstm
 def build_model(args, input_image_view_size):
 	assert 'moving-mnist' in args.dataset.lower()
 	num_classes = 10
-
+	pre_model_hook = lambda batch: batch.permute(0, 2, 3, 1)  # [B, H, W, C]
 	if args.model == 'lstm':
 		gh, gw = args.grid_size
 		num_sensors = gh * gw
@@ -86,12 +87,17 @@ def build_model(args, input_image_view_size):
 			num_classes=num_classes,
 			latent_dim=backbone.num_channels
 		)
+	elif args.model == 'deformable-perceiver':
+		backbone, pre_model_hook, recurrent_module, detection_head = build_model_deformable_perceiver(
+			args, num_classes=num_classes, input_image_view_size=input_image_view_size
+		)
 	else:
 		raise NotImplementedError(f"Model {args.model} not implemented.")
 
 	if args.object_detection:
 		model = RecurrentVideoObjectModule(
 			backbone=backbone,
+			pre_model_hook=pre_model_hook,
 			recurrent_module=recurrent_module,
 			detection_head=detection_head,
 		)
