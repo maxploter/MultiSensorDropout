@@ -16,7 +16,7 @@ from einops.layers.torch import Reduce
 from models.ops.modules import MSDeformAttn
 
 from models.backbone import build_backbone
-from models.perceiver import CenterPointDetectionHead, ObjectDetectionHead
+from models.perceiver import CenterPointDetectionHead, ObjectDetectionHead, MLP
 
 
 # helpers
@@ -229,12 +229,6 @@ class DeformablePerceiver(nn.Module):
         fourier_channels = 2 * ((num_freq_bands * 2) + 1)
         self.level_embed = nn.Parameter(torch.Tensor(n_levels, fourier_channels)) # TODO
 
-        self.to_logits = nn.Sequential(
-            Reduce('b n d -> b d', 'mean'),
-            nn.LayerNorm(latent_dim),
-            nn.Linear(latent_dim, num_classes)
-        ) if final_classifier_head else nn.Identity()
-
         input_proj_list = []
         backbone_num_channels = [64, 128, 256] #TODO
         for _ in range(n_levels):
@@ -341,13 +335,14 @@ class DeformablePerceiver(nn.Module):
 
         src = self.to_latent(torch.cat((src_flatten, lvl_pos_embed_flatten), dim = -1))
 
-
         if latents is not None:
+            latents, _ = latents
             x = latents
         else:
             x = repeat(self.latents, 'n d -> b n d', b=b)
 
         reference_points = self.reference_points(x).sigmoid()
+        init_reference_out = reference_points
 
         if reference_points.shape[-1] == 4:
             reference_points_input = reference_points[:, :, None] \
@@ -374,12 +369,54 @@ class DeformablePerceiver(nn.Module):
 
         # allow for fetching embeddings
 
-        if return_embeddings:
-            return x
+        return x, init_reference_out
 
-        # to logits
 
-        return self.to_logits(x)
+
+def inverse_sigmoid(x, eps=1e-5):
+    x = x.clamp(min=0, max=1)
+    x1 = x.clamp(min=eps)
+    x2 = (1 - x).clamp(min=eps)
+    return torch.log(x1/x2)
+
+
+
+class ObjectDetectionHead(nn.Module):
+    def __init__(self, num_classes, latent_dim):
+        """ Initializes the model.
+        Parameters:
+            num_classes: number of object classes
+            num_latents: number of object queries, ie detection slot. This is the maximal number of objects
+                         model can detect in a single image. For COCO, we recommend 100 queries.
+            latent_dim: dimension of the latent object query.
+        """
+        super().__init__()
+        print("Using ObjectDetectionHead with reference points")
+        self.class_embed = nn.Linear(latent_dim, num_classes + 1)
+        self.bbox_embed = MLP(latent_dim, latent_dim, 4, 3)
+
+    def forward(self, data):
+        """Forward pass of the ObjectDetectionHead.
+            Parameters:
+                - hs: Tensor
+                    Hidden states from the model, of shape [batch_size x num_queries x latent_dim].
+
+            It returns a dict with the following elements:
+               - "pred_logits": the classification logits (including no-object) for all queries.
+                                Shape= [batch_size x num_queries x (num_classes + 1)]
+               - "pred_boxes": The normalized boxes coordinates for all queries, represented as
+                               (center_x, center_y, height, width). These values are normalized in [0, 1],
+                               relative to the size of each individual image (disregarding possible padding).
+                               See PostProcess for information on how to retrieve the unnormalized bounding box.
+        """
+        hs, reference = data
+        outputs_class = self.class_embed(hs)
+        tmp = self.bbox_embed(hs)
+        tmp += reference
+        outputs_coord = tmp.sigmoid()
+        out = {'pred_logits': outputs_class, 'pred_boxes': outputs_coord}
+        return out
+
 
 def build_model_deformable_perceiver(args, num_classes, input_image_view_size):
     gh, gw = args.grid_size
@@ -427,16 +464,9 @@ def build_model_deformable_perceiver(args, num_classes, input_image_view_size):
         n_points=n_points  # number of sampling points per attention head per feature level
     )
 
+    head = ObjectDetectionHead(
+        num_classes=num_classes,
+        latent_dim=args.hidden_dim
+    )
 
-    if args.object_detection:
-        classification_heads = ObjectDetectionHead(
-            num_classes=num_classes,
-            latent_dim=args.hidden_dim
-        )
-    else:
-        classification_heads = CenterPointDetectionHead(
-            num_classes=num_classes,
-            latent_dim=args.hidden_dim
-        )
-
-    return backbone, nn.Identity(), perceiver, classification_heads
+    return backbone, nn.Identity(), perceiver, head
