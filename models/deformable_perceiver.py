@@ -286,7 +286,7 @@ class DeformablePerceiver(nn.Module):
         data,
         latents=None,  # (b, num_latents, latent_dim)
         mask = None,
-        return_embeddings = False,
+        return_embeddings = True,
         **kwargs
     ):
         pos_embeds = []
