@@ -9,6 +9,7 @@ from functools import wraps
 import torch
 from torch import nn, einsum
 import torch.nn.functional as F
+from torch.nn.init import xavier_uniform_, constant_, uniform_, normal_
 
 from einops import rearrange, repeat
 from einops.layers.torch import Reduce
@@ -245,6 +246,21 @@ class DeformablePerceiver(nn.Module):
             nn.init.xavier_uniform_(proj[0].weight, gain=1)
             nn.init.constant_(proj[0].bias, 0)
 
+        self.two_stage = False
+        self._reset_parameters()
+
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+        for m in self.modules():
+            if isinstance(m, MSDeformAttn):
+                m._reset_parameters()
+        if not self.two_stage:
+            xavier_uniform_(self.reference_points.weight.data, gain=1.0)
+            constant_(self.reference_points.bias.data, 0.)
+        normal_(self.level_embed)
 
 
     @staticmethod
@@ -320,7 +336,7 @@ class DeformablePerceiver(nn.Module):
             spatial_shape = (h, w)
             spatial_shapes.append(spatial_shape)
             src = src.flatten(2).transpose(1, 2)
-            mask = mask.flatten(1)
+            mask = masks[lvl].flatten(1)
             pos_embed = pos_embed.flatten(1, 2)
             lvl_pos_embed = pos_embed + self.level_embed[lvl].view(1, 1, -1)
             lvl_pos_embed_flatten.append(lvl_pos_embed)
