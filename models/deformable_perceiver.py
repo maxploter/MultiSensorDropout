@@ -442,6 +442,7 @@ class ObjectDetectionHead(nn.Module):
                                See PostProcess for information on how to retrieve the unnormalized bounding box.
         """
         hs, reference = data
+        reference = inverse_sigmoid(reference)
         outputs_class = self.class_embed(hs)
         tmp = self.bbox_embed(hs)
         tmp[..., :2] += reference
