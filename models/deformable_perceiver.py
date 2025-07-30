@@ -375,7 +375,7 @@ class DeformablePerceiver(nn.Module):
                 input_flatten=src,
                 input_spatial_shapes=spatial_shapes,
                 input_level_start_index=level_start_index,
-                # input_padding_mask = mask_flatten
+                input_padding_mask = mask_flatten
             ) + x
             x = cross_ff(x) + x
 
