@@ -73,6 +73,22 @@ class PreNorm(nn.Module):
 
         return self.fn(x, **kwargs)
 
+class PreNormForMSDA(nn.Module):
+    def __init__(self, dim, fn, context_dim = None):
+        super().__init__()
+        self.fn = fn
+        self.norm = nn.LayerNorm(dim)
+        self.norm_input = nn.LayerNorm(dim)
+
+    def forward(self, query, **kwargs):
+        query = self.norm(query)
+
+        input_flatten = kwargs['input_flatten']
+        normed_input = self.norm_input(input_flatten)
+        kwargs.update(input_flatten = normed_input)
+
+        return self.fn(query, **kwargs)
+
 class GEGLU(nn.Module):
     def forward(self, x):
         x, gates = x.chunk(2, dim = -1)
@@ -201,7 +217,7 @@ class DeformablePerceiver(nn.Module):
 
         self.latents = nn.Parameter(torch.randn(num_latents, latent_dim))
 
-        get_cross_attn = lambda: MSDeformAttn(latent_dim, n_levels, cross_heads, n_points)
+        get_cross_attn = lambda: PreNormForMSDA(latent_dim, MSDeformAttn(latent_dim, n_levels, cross_heads, n_points))
         get_cross_ff = lambda: PreNorm(latent_dim, FeedForward(latent_dim, dropout = ff_dropout))
         get_latent_attn = lambda: PreNorm(latent_dim, Attention(latent_dim, heads = latent_heads, dim_head = latent_dim_head, dropout = attn_dropout))
         get_latent_ff = lambda: PreNorm(latent_dim, FeedForward(latent_dim, dropout = ff_dropout))
