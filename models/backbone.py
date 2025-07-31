@@ -663,7 +663,6 @@ class YOLOBackboneWrapperV2(nn.Module):
         super().__init__()
         if YOLO is None:
             raise ImportError("Ultralytics YOLO is not installed.")
-
         # Initialize YOLO model
         self.yolo = YOLO(model_path)
         self.yolo.info(detailed=True, verbose=True)
@@ -762,9 +761,15 @@ def build_backbone(args, input_image_view_size):
     if args.backbone == 'yolo-v2':
         if YOLO is None:
             raise ImportError("YOLO backbone requested but ultralytics is not installed.")
-        print("Using YOLOv8 backbone for feature extraction v2")
         model_path = getattr(args, 'yolo_model_path', 'yolov8n.pt')
-        return YOLOBackboneWrapperV2(model_path=model_path, input_image_view_size=input_image_view_size)
+        feature_layers = getattr(args, 'yolo_feature_layers', [4, 6, 9])
+
+        print("Using YOLOv8 backbone for feature extraction v2 with layers:", feature_layers)
+        return YOLOBackboneWrapperV2(
+            model_path=model_path,
+            input_image_view_size=input_image_view_size,
+            feature_layers=feature_layers,
+        )
 
     if args.backbone == 'yolo-fpn':
         if YOLO is None:

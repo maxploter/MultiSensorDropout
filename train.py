@@ -44,6 +44,7 @@ def _get_parser():
     parser.add_argument('--shuffle_views', action='store_true', help='Shuffle views during inference')
     parser.add_argument('--object_detection', action='store_true', help='Use object detection prediction head')
     parser.add_argument('--resize_frame', type=int, help='Resize frame to this size')
+    parser.add_argument('--yolo_feature_layers', type=int, nargs='*', default=[3, 4, 5])
 
     # * Matcher
     parser.add_argument('--set_cost_class', default=1, type=float,
