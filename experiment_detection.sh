@@ -41,6 +41,7 @@ backbone='cnn'
 self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
 learning_rate=1e-4
+weight_decay=0.01
 learning_rate_backbone=1e-4
 train_dataset_fraction=0.5
 test_dataset_fraction=1.0
@@ -102,6 +103,7 @@ while [[ "$#" -gt 0 ]]; do
     --num_freq_bands) num_freq_bands="$2"; shift ;;
     --generate_dataset_runtime) generate_dataset_runtime="$2"; shift ;;
     --enc_nheads_cross) enc_nheads_cross="$2"; shift ;;
+    --weight_decay) weight_decay="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -119,6 +121,7 @@ python_command="srun python train.py \
     --num_frames $num_frames \
     --learning_rate $learning_rate \
     --learning_rate_backbone $learning_rate_backbone \
+    --weight_decay $weight_decay \
     --output_dir $output_dir \
     --train_dataset_fraction $train_dataset_fraction \
     --test_dataset_fraction $test_dataset_fraction \

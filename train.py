@@ -30,6 +30,8 @@ def _get_parser():
     parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
     parser.add_argument('--learning_rate_backbone', type=float, default=1e-4, help='Learning rate')
     parser.add_argument('--learning_rate_backbone_names', default=["backbone"], type=str, nargs='+')
+    parser.add_argument('--learning_rate_linear_proj_names', default=['reference_points', 'sampling_offsets'], type=str, nargs='+')
+    parser.add_argument('--learning_rate_linear_proj_mult', default=0.1, type=float)
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--scheduler_step_size', type=int, default=12, help='Scheduler step size')
     parser.add_argument('--eval_interval', type=int, default=1, help='Eval every interval')
@@ -190,13 +192,19 @@ def main(args):
 
     param_dicts = [
         {
-            "params": [p for n, p in model_without_ddp.named_parameters() if not match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
-            "lr": args.learning_rate
+            "params":
+                [p for n, p in model_without_ddp.named_parameters()
+                 if not match_name_keywords(n, args.learning_rate_backbone_names) and not match_name_keywords(n, args.learning_rate_linear_proj_names) and p.requires_grad],
+            "lr": args.learning_rate,
         },
         {
             "params": [p for n, p in model_without_ddp.named_parameters() if match_name_keywords(n, args.learning_rate_backbone_names) and p.requires_grad],
             "lr": args.learning_rate_backbone,
         },
+        {
+            "params": [p for n, p in model_without_ddp.named_parameters() if match_name_keywords(n, args.learning_rate_linear_proj_names) and p.requires_grad],
+            "lr": args.learning_rate * args.learning_rate_linear_proj_mult,
+        }
     ]
 
     print(f'Params sizes: {[len(p["params"]) for p in param_dicts]}')
