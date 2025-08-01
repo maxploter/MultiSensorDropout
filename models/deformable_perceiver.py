@@ -17,7 +17,7 @@ from einops.layers.torch import Reduce
 from models.ops.modules import MSDeformAttn
 
 from models.backbone import build_backbone
-from models.perceiver import CenterPointDetectionHead, ObjectDetectionHead, MLP
+from models.perceiver import MLP
 
 
 # helpers
@@ -217,7 +217,7 @@ class DeformablePerceiver(nn.Module):
 
         self.latents = nn.Parameter(torch.randn(num_latents, latent_dim))
 
-        get_cross_attn = lambda: MSDeformAttn(latent_dim, n_levels, cross_heads, n_points)
+        get_cross_attn = lambda: PreNormForMSDA(latent_dim, MSDeformAttn(latent_dim, n_levels, cross_heads, n_points))
         get_cross_ff = lambda: PreNorm(latent_dim, FeedForward(latent_dim, dropout = ff_dropout))
         get_latent_attn = lambda: PreNorm(latent_dim, Attention(latent_dim, heads = latent_heads, dim_head = latent_dim_head, dropout = attn_dropout))
         get_latent_ff = lambda: PreNorm(latent_dim, FeedForward(latent_dim, dropout = ff_dropout))
@@ -442,10 +442,10 @@ class ObjectDetectionHead(nn.Module):
                                See PostProcess for information on how to retrieve the unnormalized bounding box.
         """
         hs, reference = data
-        # reference = inverse_sigmoid(reference)
+        reference = inverse_sigmoid(reference)
         outputs_class = self.class_embed(hs)
         tmp = self.bbox_embed(hs)
-        # tmp[..., :2] += reference
+        tmp[..., :2] += reference
         outputs_coord = tmp.sigmoid()
         out = {'pred_logits': outputs_class, 'pred_boxes': outputs_coord}
         return out
