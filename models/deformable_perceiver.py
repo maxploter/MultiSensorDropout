@@ -277,6 +277,7 @@ class DeformablePerceiver(nn.Module):
             xavier_uniform_(self.reference_points.weight.data, gain=1.0)
             constant_(self.reference_points.bias.data, 0.)
         normal_(self.level_embed)
+        normal_(self.latents, std=0.02)
 
 
     @staticmethod
