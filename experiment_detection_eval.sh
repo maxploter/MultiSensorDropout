@@ -49,6 +49,7 @@ self_per_cross_attn=1
 max_freq=10
 num_freq_bands=6
 test_dataset_fraction=1.0
+resize_frame=''
 
 backbone='yolo'
 
@@ -74,6 +75,7 @@ while [[ "$#" -gt 0 ]]; do
     --max_freq) max_freq="$2"; shift ;;
     --num_freq_bands) num_freq_bands="$2"; shift ;;
     --test_dataset_fraction) test_dataset_fraction="$2"; shift ;;
+    --resize_frame) resize_frame="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -114,6 +116,10 @@ evaluate_checkpoint() {
 
     if [[ -n "$shuffle_views" ]]; then
         python_command="$python_command --shuffle_views"
+    fi
+
+    if [[ -n "$resize_frame" ]]; then
+        python_command="$python_command --resize_frame $resize_frame"
     fi
 
     eval "$python_command"
