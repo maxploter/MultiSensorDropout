@@ -48,6 +48,7 @@ enc_layers=1
 self_per_cross_attn=1
 max_freq=10
 num_freq_bands=6
+test_dataset_fraction=1.0
 
 backbone='yolo'
 
@@ -72,6 +73,7 @@ while [[ "$#" -gt 0 ]]; do
     --self_per_cross_attn) self_per_cross_attn="$2"; shift ;;
     --max_freq) max_freq="$2"; shift ;;
     --num_freq_bands) num_freq_bands="$2"; shift ;;
+    --test_dataset_fraction) test_dataset_fraction="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -88,6 +90,7 @@ evaluate_checkpoint() {
       --object_detection \
       --dataset_path $dataset_path \
       --dataset $dataset \
+      --test_dataset_fraction $test_dataset_fraction \
       --num_frames $num_frames \
       --frame_dropout_pattern $frame_dropout_pattern \
       --view_dropout_probs \
