@@ -30,6 +30,7 @@ conda activate multi_sensor_dropout
 # Blind experiment. Drop frames during training.
 
 model='perceiver'
+backbone='yolo'
 timestamp=$(date +%Y-%m-%d_%H-%M-%S)
 output_dir=""
 resume=""
@@ -51,7 +52,23 @@ num_freq_bands=6
 test_dataset_fraction=1.0
 resize_frame=''
 
-backbone='yolo'
+
+master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_ADDR=$master_addr
+echo "MASTER_ADDR="$MASTER_ADDR
+
+export MASTER_PORT=$((12000 + RANDOM % 1000))
+echo "MASTER_PORT="$MASTER_PORT
+
+export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
+echo "WORLD_SIZE="$WORLD_SIZE
+
+echo SLURM_PROCID=$SLURM_PROCID
+echo RANK=$RANK
+echo output_dir=$output_dir
+echo OMP_NUM_THREADS=$OMP_NUM_THREADS
+
+export NCCL_DEBUG=INFO
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -108,7 +125,8 @@ evaluate_checkpoint() {
       --num_workers 4 \
       --grid_size $grid_size \
       --tile_overlap $tile_overlap \
-      --weight_loss_center_point $weight_loss_center_point"
+      --weight_loss_center_point $weight_loss_center_point \
+      --world_size $WORLD_SIZE"
 
     if [[ -n "$wandb_id" ]]; then
         python_command="$python_command --wandb_id $wandb_id"
