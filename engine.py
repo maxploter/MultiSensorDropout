@@ -122,7 +122,7 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device, evalua
         # Use torchmetrics for mAP calculation
         # Specify box format ('xyxy', 'xywh', 'cxcywh') based on your model output/postprocessor
         # Make sure it matches the format in both predictions and targets
-        map_metric = torchmetrics.detection.MeanAveragePrecision(box_format='xyxy', iou_type='bbox').to(device)
+        map_metric = torchmetrics.detection.MeanAveragePrecision(box_format='xyxy', iou_type='bbox', class_metrics=True).to(device)
         # coco_evaluator = CocoEvaluator(base_ds, 'bbox') # Remove or comment out old evaluator
 
 
