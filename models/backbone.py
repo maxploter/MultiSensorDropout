@@ -265,7 +265,7 @@ class YOLOBackboneWrapper(nn.Module):
     Wrapper for Ultralytics YOLOv8 backbone for feature extraction using a forward hook.
     Thread/process safe: feature maps are stored as an instance attribute.
     """
-    def __init__(self, model_path='yolov8n.pt', input_image_view_size=(320, 320), target_layer_index=None):
+    def __init__(self, train_backbone, model_path='yolov8n.pt', input_image_view_size=(320, 320), target_layer_index=None):
         super().__init__()
         if YOLO is None:
             raise ImportError("Ultralytics YOLO is not installed.")
@@ -278,15 +278,15 @@ class YOLOBackboneWrapper(nn.Module):
         self.num_channels = 256
         h, w = input_image_view_size
         self.output_size = (h // 32, w // 32)
-        self.set_yolo_requires_grad()  # <-- Set requires_grad as requested
+        self.set_yolo_requires_grad(train_backbone)
 
-    def set_yolo_requires_grad(self):
+    def set_yolo_requires_grad(self, train_backbone):
         """
         Sets requires_grad=True for all parameters with index <= self.target_layer_index,
         and requires_grad=False for all others.
         """
         for idx, layer in enumerate(self.yolo.model.model):
-            requires_grad = idx <= self.target_layer_index
+            requires_grad = idx <= self.target_layer_index and train_backbone
             for param in layer.parameters(recurse=True):
                 param.requires_grad = requires_grad
 
@@ -655,12 +655,16 @@ def build_backbone(args, input_image_view_size):
     if args.backbone == 'yolo':
         if YOLO is None:
             raise ImportError("YOLO backbone requested but ultralytics is not installed.")
-        print("Using YOLOv8 backbone for feature extraction")
+        train_backbone = args.learning_rate_backbone > 0
+        target_layer_index = getattr(args, 'yolo_target_layer_index', 21)
         model_path = getattr(args, 'yolo_model_path', 'yolov8n.pt')
-        # Allow target_layer_index to be set via args, default to second-to-last
-        target_layer_index = getattr(args, 'yolo_target_layer_index', None)
-        return YOLOBackboneWrapper(model_path=model_path, input_image_view_size=input_image_view_size,
-                                   target_layer_index=21)
+        print(f"Using YOLOv8 backbone for feature extraction train_backbone={train_backbone} target_layer_index={target_layer_index}")
+        return YOLOBackboneWrapper(
+            train_backbone=train_backbone,
+            model_path=model_path,
+            input_image_view_size=input_image_view_size,
+            target_layer_index=target_layer_index
+        )
     if args.backbone == 'yolo-fpn':
         if YOLO is None:
             raise ImportError("YOLO backbone requested but ultralytics is not installed.")
