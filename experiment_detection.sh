@@ -37,6 +37,7 @@ wandb_id=''
 dataset_path='Max-Ploter/detection-moving-mnist-easy'
 dataset='moving-mnist-medium'
 backbone='cnn'
+backbone_checkpoint=''
 
 self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
@@ -100,6 +101,7 @@ while [[ "$#" -gt 0 ]]; do
     --max_freq) max_freq="$2"; shift ;;
     --num_freq_bands) num_freq_bands="$2"; shift ;;
     --generate_dataset_runtime) generate_dataset_runtime="$2"; shift ;;
+    --backbone_checkpoint) backbone_checkpoint="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -141,6 +143,11 @@ fi
 # Conditionally add --resume
 if [[ -n "$resume" ]]; then
     python_command="$python_command --resume $resume --wandb_id $wandb_id"
+fi
+
+# Conditionally add --backbone_checkpoint
+if [[ -n "$backbone_checkpoint" ]]; then
+    python_command="$python_command --backbone_checkpoint $backbone_checkpoint"
 fi
 
 # Execute the python command

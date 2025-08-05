@@ -657,8 +657,8 @@ def build_backbone(args, input_image_view_size):
             raise ImportError("YOLO backbone requested but ultralytics is not installed.")
         train_backbone = args.learning_rate_backbone > 0
         target_layer_index = getattr(args, 'yolo_target_layer_index', 21)
-        model_path = getattr(args, 'yolo_model_path', 'yolov8n.pt')
-        print(f"Using YOLOv8 backbone for feature extraction train_backbone={train_backbone} target_layer_index={target_layer_index}")
+        model_path = args.backbone_checkpoint if args.backbone_checkpoint else 'yolov8n.pt'
+        print(f"Using YOLOv8 backbone {model_path} for feature extraction train_backbone={train_backbone} target_layer_index={target_layer_index}")
         return YOLOBackboneWrapper(
             train_backbone=train_backbone,
             model_path=model_path,

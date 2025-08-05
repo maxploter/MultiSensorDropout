@@ -109,6 +109,7 @@ def _get_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+    parser.add_argument('--backbone_checkpoint', type=str, default=None, help='Path to pretrained backbone checkpoint')
     return parser
 
 def parse_args():
