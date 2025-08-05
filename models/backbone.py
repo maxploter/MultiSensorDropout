@@ -5,6 +5,7 @@ from torchvision.ops.feature_pyramid_network import FeaturePyramidNetwork
 from torchvision.models._utils import IntermediateLayerGetter
 from torchvision.ops import FrozenBatchNorm2d
 import torch
+from util.misc import is_main_process
 
 try:
     from ultralytics import YOLO
@@ -20,13 +21,10 @@ except ImportError:
 
 class BackboneBase(nn.Module):
 
-    def __init__(self, backbone: nn.Module, train_backbone: bool, num_channels: int, return_interm_layers: bool,
-                 layers_used: set = None):
+    def __init__(self, backbone: nn.Module, train_backbone: bool, num_channels: int, return_interm_layers: bool):
         super().__init__()
-        if layers_used is None:
-            layers_used = {'layer1', 'layer2', 'layer3', 'layer4'}
         for name, parameter in backbone.named_parameters():
-            if not train_backbone or not any(layer in name for layer in layers_used):
+            if not train_backbone or 'layer2' not in name and 'layer3' not in name and 'layer4' not in name:
                 parameter.requires_grad_(False)
         if return_interm_layers:
             return_layers = {"layer1": "0", "layer2": "1", "layer3": "2", "layer4": "3"}
@@ -46,13 +44,12 @@ class Backbone(BackboneBase):
                  train_backbone: bool,
                  return_interm_layers: bool,
                  input_image_view_size: tuple[int, int],
-                 dilation: bool = False,
-                 layers_used: set[str] = None):
+                 dilation: bool):
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, dilation],
-            pretrained=True, norm_layer=FrozenBatchNorm2d)
+            pretrained=is_main_process(), norm_layer=FrozenBatchNorm2d)
         num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
-        super().__init__(backbone, train_backbone, num_channels, return_interm_layers, layers_used)
+        super().__init__(backbone, train_backbone, num_channels, return_interm_layers)
         h, w = input_image_view_size
         self.output_size = (h // 32, w // 32)
 
@@ -686,7 +683,15 @@ def build_backbone(args, input_image_view_size):
         return YOLOFPNBackboneV3(model_path=model_path, input_image_view_size=input_image_view_size)
 
     if 'resnet' in args.backbone:
-        return Backbone(args.backbone, train_backbone=True, return_interm_layers=False, input_image_view_size=input_image_view_size)
+        train_backbone = args.learning_rate_backbone > 0
+        print(f"Using ResNet backbone {args.backbone} train_backbone={train_backbone} dilation={args.dilation}")
+        return Backbone(
+            args.backbone,
+            dilation=args.dilation,
+            train_backbone=train_backbone,
+            return_interm_layers=False,
+            input_image_view_size=input_image_view_size
+        )
 
     if 'vgg' in args.backbone:
         print("Using VGG backbone")
