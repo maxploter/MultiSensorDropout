@@ -56,6 +56,7 @@ resize_frame=''
 generate_dataset_runtime=''
 max_freq=10
 num_freq_bands=6
+dilation=""
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
@@ -102,6 +103,7 @@ while [[ "$#" -gt 0 ]]; do
     --num_freq_bands) num_freq_bands="$2"; shift ;;
     --generate_dataset_runtime) generate_dataset_runtime="$2"; shift ;;
     --backbone_checkpoint) backbone_checkpoint="$2"; shift ;;
+    --dilation) dilation="--dilation"; shift ;;  # New flag
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -148,6 +150,10 @@ fi
 # Conditionally add --backbone_checkpoint
 if [[ -n "$backbone_checkpoint" ]]; then
     python_command="$python_command --backbone_checkpoint $backbone_checkpoint"
+fi
+
+if [[ -n "$dilation" ]]; then
+    python_command="$python_command $dilation"
 fi
 
 # Execute the python command
