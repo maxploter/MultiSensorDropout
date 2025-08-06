@@ -52,6 +52,7 @@ scheduler_step_size=12
 epochs=18
 dropout=0.0
 enc_layers=1
+enc_nheads_cross=1
 resize_frame=''
 generate_dataset_runtime=''
 max_freq=10
@@ -102,6 +103,7 @@ while [[ "$#" -gt 0 ]]; do
     --num_freq_bands) num_freq_bands="$2"; shift ;;
     --generate_dataset_runtime) generate_dataset_runtime="$2"; shift ;;
     --backbone_checkpoint) backbone_checkpoint="$2"; shift ;;
+    --enc_nheads_cross) enc_nheads_cross="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -125,6 +127,7 @@ python_command="srun python train.py \
     --num_workers 4 \
     --hidden_dim $hidden_dim \
     --enc_layers $enc_layers \
+    --enc_nheads_cross $enc_nheads_cross \
     --self_per_cross_attn $self_per_cross_attn \
     --num_queries $num_queries \
     --max_freq $max_freq \
