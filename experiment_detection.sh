@@ -57,6 +57,7 @@ resize_frame=''
 generate_dataset_runtime=''
 max_freq=10
 num_freq_bands=6
+disable_fourier_encoding=''
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
@@ -104,6 +105,7 @@ while [[ "$#" -gt 0 ]]; do
     --generate_dataset_runtime) generate_dataset_runtime="$2"; shift ;;
     --backbone_checkpoint) backbone_checkpoint="$2"; shift ;;
     --enc_nheads_cross) enc_nheads_cross="$2"; shift ;;
+    --disable_fourier_encoding) disable_fourier_encoding="--disable_fourier_encoding"; ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -141,6 +143,10 @@ fi
 
 if [[ -n "$generate_dataset_runtime" ]]; then
     python_command="$python_command --generate_dataset_runtime"
+fi
+
+if [[ -n "$disable_fourier_encoding" ]]; then
+    python_command="$python_command $disable_fourier_encoding"
 fi
 
 # Conditionally add --resume

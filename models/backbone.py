@@ -18,6 +18,7 @@ try:
 except ImportError:
     YOLOBackbone = None  # Fallback if ultralytics is not installed
 
+import torch.hub
 
 class BackboneBase(nn.Module):
 
@@ -648,6 +649,106 @@ class YOLOFPNBackboneV3(nn.Module):
 
         return merged_features
 
+class DINOv2Backbone(nn.Module):
+    """
+    DINOv2 backbone for feature extraction.
+    DINOv2 is a self-supervised vision transformer model from Meta AI.
+
+    Available models:
+    - ViT-S/14 (small): 21M parameters
+    - ViT-B/14 (base): 86M parameters
+    - ViT-L/14 (large): 300M parameters
+    - ViT-g/14 (giant): 1.1B parameters
+
+    Each model is available with or without registers.
+    """
+    def __init__(self,
+                 model_size='small',
+                 train_backbone=False,
+                 input_image_view_size=(322, 322),
+                 patch_size=14,
+                 use_register=False):
+        super().__init__()
+
+        # Map model size to the correct model name
+        size_mapping = {
+            'small': 'vits',
+            'base': 'vitb',
+            'large': 'vitl',
+            'giant': 'vitg'
+        }
+
+        vit_size = size_mapping.get(model_size, 'vits')
+
+        # Build model name based on size, patch size and whether to use registers
+        model_name = f"dinov2_{vit_size}{patch_size}"
+        if use_register:
+            model_name += "_reg"
+
+        print(f"Loading DINOv2 model: {model_name}")
+        self.model = torch.hub.load('facebookresearch/dinov2', model_name)
+
+        # Set feature dimensionality based on model size
+        feature_dims = {
+            'small': 384,   # ViT-S/14
+            'base': 768,    # ViT-B/14
+            'large': 1024,  # ViT-L/14
+            'giant': 1536   # ViT-g/14
+        }
+        self.num_channels = feature_dims.get(model_size, 384)
+
+        # Calculate output size based on patch size and input dimensions
+        h, w = input_image_view_size
+        self.output_size = (h // patch_size, w // patch_size)
+
+        # Set requires_grad based on train_backbone
+        self.train_backbone = train_backbone
+        self.set_requires_grad(train_backbone)
+
+    def set_requires_grad(self, train_backbone):
+        """Configure which parts of the backbone are trainable"""
+        # Freeze all parameters by default
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        if train_backbone:
+            # If training backbone, only unfreeze the last few blocks
+            # Unfreeze the last 4 blocks of the transformer
+            blocks_to_train = 4
+            for i in range(len(self.model.blocks) - blocks_to_train, len(self.model.blocks)):
+                for param in self.model.blocks[i].parameters():
+                    param.requires_grad = True
+
+            # Also train the head if present
+            if hasattr(self.model, 'head'):
+                for param in self.model.head.parameters():
+                    param.requires_grad = True
+
+    def train(self, mode=True):
+        """Set model to train mode but preserve frozen modules"""
+        super().train(mode)
+        # Make sure we don't override frozen parameters
+        self.set_requires_grad(self.train_backbone)
+        return self
+
+    def forward(self, x):
+        # Handle grayscale images by repeating the channel
+        if x.shape[1] == 1:
+            x = x.repeat(1, 3, 1, 1)
+
+        # Process through DINOv2
+        features = self.model.forward_features(x)
+
+        # Extract patch features (without cls token)
+        patch_features = features['x_norm_patchtokens']
+
+        # Reshape to spatial feature map (B, N, C) -> (B, C, H, W)
+        B, N, C = patch_features.shape
+        H = W = int(N ** 0.5)  # Assuming square input
+        patch_features = patch_features.reshape(B, H, W, C).permute(0, 3, 1, 2)
+
+        return patch_features
+
 def build_backbone(args, input_image_view_size):
     if args.backbone == 'yolo':
         if YOLO is None:
@@ -691,6 +792,20 @@ def build_backbone(args, input_image_view_size):
             train_backbone=train_backbone,
             return_interm_layers=False,
             input_image_view_size=input_image_view_size
+        )
+    if args.backbone == 'dinov2':
+        print("Using DINOv2 backbone")
+        train_backbone = args.learning_rate_backbone > 0
+        model_size = getattr(args, 'dinov2_model_size', 'small')
+        patch_size = getattr(args, 'dinov2_patch_size', 14)
+        use_register = getattr(args, 'dinov2_use_register', False)
+
+        return DINOv2Backbone(
+            model_size=model_size,
+            train_backbone=train_backbone,
+            input_image_view_size=input_image_view_size,
+            patch_size=patch_size,
+            use_register=use_register
         )
 
     if 'vgg' in args.backbone:
