@@ -449,8 +449,11 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
 
     backbone = build_backbone(args, input_image_view_size=input_image_view_size)
 
+    fourier_encode_data = not args.disable_fourier_encoding
+
     num_freq_bands = args.num_freq_bands
-    fourier_channels = 2 * ((num_freq_bands * 2) + 1)
+    input_axis = 2  # assuming 2D input (images)
+    fourier_channels = (input_axis * ((num_freq_bands * 2) + 1)) if fourier_encode_data else 0
 
     num_channels_from_backbone = backbone.num_channels
 
@@ -462,7 +465,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
 
     perceiver = Perceiver(
         input_channels=num_channels,  # number of channels for each token of the input
-        input_axis=2,  # number of axis for input data (2 for images, 3 for video)
+        input_axis=input_axis,  # number of axis for input data (2 for images, 3 for video)
         num_freq_bands=num_freq_bands,  # number of freq bands, with original value (2 * K + 1)
         max_freq=args.max_freq,  # maximum frequency, hyperparameter depending on how fine the data is
         depth=args.enc_layers,  # depth of net. The shape of the final attention mechanism will be:
@@ -479,7 +482,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         attn_dropout=args.dropout,
         ff_dropout=args.dropout,
         weight_tie_layers=False,  # whether to weight tie layers (optional, as indicated in the diagram)
-        fourier_encode_data=True,
+        fourier_encode_data=fourier_encode_data,
         # whether to auto-fourier encode the data, using the input_axis given. defaults to True, but can be turned off if you are fourier encoding the data yourself
         self_per_cross_attn=args.self_per_cross_attn,  # number of self attention blocks per cross attention
         final_classifier_head=False,  # mean pool and project embeddings to number of classes (num_classes) at the end
