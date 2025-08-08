@@ -702,6 +702,11 @@ class DINOv2Backbone(nn.Module):
         h, w = input_image_view_size
         self.output_size = (h // patch_size, w // patch_size)
 
+        # Initialize learnable positional embeddings
+        num_patches = self.output_size[0] * self.output_size[1]
+        self.pos_embedding = nn.Parameter(torch.zeros(1, num_patches, self.num_channels))
+        nn.init.trunc_normal_(self.pos_embedding, std=.02) # Standard initialization
+
         # Set requires_grad based on train_backbone
         self.train_backbone = train_backbone
         self.set_requires_grad(train_backbone)
@@ -742,6 +747,10 @@ class DINOv2Backbone(nn.Module):
 
         # Extract patch features (without cls token)
         patch_features = features['x_norm_patchtokens']
+
+        # Add learnable positional embeddings
+        # The pos_embedding is (1, num_patches, num_channels) and will broadcast over the batch dimension
+        patch_features = patch_features + self.pos_embedding
 
         return patch_features
 
