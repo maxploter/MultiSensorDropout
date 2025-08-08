@@ -452,7 +452,7 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
     fourier_encode_data = not args.disable_fourier_encoding
 
     num_freq_bands = args.num_freq_bands
-    input_axis = 2  # assuming 2D input (images)
+    input_axis = args.input_axis
     fourier_channels = (input_axis * ((num_freq_bands * 2) + 1)) if fourier_encode_data else 0
 
     num_channels_from_backbone = backbone.num_channels

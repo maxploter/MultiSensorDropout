@@ -106,6 +106,7 @@ def _get_parser():
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout rate')
     parser.add_argument('--self_per_cross_attn', type=int, default=1, help='Number of self-attention blocks per cross-attention block')
     parser.add_argument('--multi_classification_heads', action='store_true')
+    parser.add_argument('--input_axis', type=int, default=2, help='Number of axes for input data (1 text, 2 for images, 3 for video)')
 
     # LSTM model specific arguments
     parser.add_argument('--lstm_hidden_size', type=int, default=128, help='Hidden size of LSTM')

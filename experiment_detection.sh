@@ -58,6 +58,7 @@ generate_dataset_runtime=''
 max_freq=10
 num_freq_bands=6
 disable_fourier_encoding=''
+input_axis=2
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
@@ -106,6 +107,7 @@ while [[ "$#" -gt 0 ]]; do
     --backbone_checkpoint) backbone_checkpoint="$2"; shift ;;
     --enc_nheads_cross) enc_nheads_cross="$2"; shift ;;
     --disable_fourier_encoding) disable_fourier_encoding="--disable_fourier_encoding"; ;;
+    --input_axis) input_axis="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -134,6 +136,7 @@ python_command="srun python train.py \
     --num_queries $num_queries \
     --max_freq $max_freq \
     --num_freq_bands $num_freq_bands \
+    --input_axis $input_axis \
     --scheduler_step_size $scheduler_step_size \
     --world_size $WORLD_SIZE"
 

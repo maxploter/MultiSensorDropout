@@ -37,7 +37,7 @@ class BackboneBase(nn.Module):
     def forward(self, tensor):
         xs = self.body(tensor)
         for name, x in xs.items():
-            return x
+            return x.permute(0, 2, 3, 1) # [B, H, W, C]
 
 class Backbone(BackboneBase):
     """ResNet backbone with frozen BatchNorm."""
@@ -83,7 +83,7 @@ class BackboneCnn(nn.Module):
 
     def forward(self, x):
         x = self.block1(x)
-        return x
+        return x.permute(0, 2, 3, 1) # [B, H, W, C]
 
 
 class BackboneCnnV2(nn.Module):
@@ -172,7 +172,7 @@ class BackboneCnnV2(nn.Module):
         x = self.block2(x)
         x = self.block3(x)
         x = self.block4(x)
-        return x
+        return x.permute(0, 2, 3, 1) # [B, H, W, C]
 
 class SimpleVGGBackbone(nn.Module):
     """
@@ -240,7 +240,7 @@ class SimpleVGGBackbone(nn.Module):
         # Input x shape: (Batch, Channels, Height, Width) e.g., (B, 1, 320, 320)
         x = self.features(x)
         # Output x shape: (Batch, self.num_channels, Height/16, Width/16) e.g., (B, 256, 20, 20)
-        return x
+        return x.permute(0, 2, 3, 1) # [B, H, W, C]
 
 
 class BackboneIdentity(nn.Module):
@@ -249,7 +249,7 @@ class BackboneIdentity(nn.Module):
         self.num_channels = 1
 
     def forward(self, x):
-        return x
+        return x.permute(0, 2, 3, 1) # [B, H, W, C]
 
 # --- YOLO backbone feature map hook support ---
 FEATURE_MAPS = None  # Global variable to store feature maps from the hook
@@ -307,6 +307,7 @@ class YOLOBackboneWrapper(nn.Module):
         out = self.feature_maps
         if out is None:
             raise RuntimeError("Feature maps not captured. Check target_layer_index and hook registration.")
+        out = out.permute(0, 2, 3, 1)  # [B, H, W, C]
         return out
 
 
@@ -417,7 +418,7 @@ class YOLOFPNBackbone(nn.Module):
         # Apply fusion convolution
         merged_features = self.fusion_conv(concat_features)
 
-        return merged_features
+        return merged_features.permute(0, 2, 3, 1) # [B, H, W, C]
 
 
 class YOLOFPNBackboneV2(nn.Module):
@@ -533,7 +534,7 @@ class YOLOFPNBackboneV2(nn.Module):
         # Apply fusion convolution
         merged_features = self.fusion_layer(concat_features)
 
-        return merged_features
+        return merged_features.permute(0, 2, 3, 1) # [B, H, W, C]
 
 
 class YOLOFPNBackboneV3(nn.Module):
@@ -647,7 +648,7 @@ class YOLOFPNBackboneV3(nn.Module):
         # Apply fusion convolution
         merged_features = self.fusion_layer(concat_features)
 
-        return merged_features
+        return merged_features.permute(0, 2, 3, 1) # [B, H, W, C]
 
 class DINOv2Backbone(nn.Module):
     """
@@ -701,6 +702,11 @@ class DINOv2Backbone(nn.Module):
         h, w = input_image_view_size
         self.output_size = (h // patch_size, w // patch_size)
 
+        # Initialize learnable positional embeddings
+        num_patches = self.output_size[0] * self.output_size[1]
+        self.pos_embedding = nn.Parameter(torch.zeros(1, num_patches, self.num_channels))
+        nn.init.trunc_normal_(self.pos_embedding, std=.02) # Standard initialization
+
         # Set requires_grad based on train_backbone
         self.train_backbone = train_backbone
         self.set_requires_grad(train_backbone)
@@ -742,10 +748,9 @@ class DINOv2Backbone(nn.Module):
         # Extract patch features (without cls token)
         patch_features = features['x_norm_patchtokens']
 
-        # Reshape to spatial feature map (B, N, C) -> (B, C, H, W)
-        B, N, C = patch_features.shape
-        H = W = int(N ** 0.5)  # Assuming square input
-        patch_features = patch_features.reshape(B, H, W, C).permute(0, 3, 1, 2)
+        # Add learnable positional embeddings
+        # The pos_embedding is (1, num_patches, num_channels) and will broadcast over the batch dimension
+        patch_features = patch_features + self.pos_embedding
 
         return patch_features
 
