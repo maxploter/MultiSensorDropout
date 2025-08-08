@@ -47,7 +47,6 @@ class AutoRegressiveModule(nn.Module):
                 if active_views[view_id]:
                     batch_view = self.backbone(batch_view)
                     # batch_view = batch_view + self.pos_encod[permutations[view_id]] #TODO: check if this is still needed
-                    batch_view = batch_view.permute(0, 2, 3, 1) # [B, H, W, C]
                 else:
                     # drop the view
                     batch_view = None
@@ -101,7 +100,6 @@ class RecurrentVideoObjectModule(nn.Module):
 
         for timestamp, batch in enumerate(src):
             batch = self.backbone(batch)
-            batch = batch.permute(0, 2, 3, 1)  # [B, H, W, C]
 
             hs = self.recurrent_module(
                 data=batch,
