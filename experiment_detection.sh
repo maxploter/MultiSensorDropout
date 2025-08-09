@@ -59,6 +59,7 @@ max_freq=10
 num_freq_bands=6
 disable_fourier_encoding=''
 input_axis=2
+disable_recurrence=''
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
@@ -108,6 +109,7 @@ while [[ "$#" -gt 0 ]]; do
     --enc_nheads_cross) enc_nheads_cross="$2"; shift ;;
     --disable_fourier_encoding) disable_fourier_encoding="--disable_fourier_encoding"; ;;
     --input_axis) input_axis="$2"; shift ;;
+    --disable_recurrence) disable_recurrence="--disable_recurrence"; ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -150,6 +152,10 @@ fi
 
 if [[ -n "$disable_fourier_encoding" ]]; then
     python_command="$python_command $disable_fourier_encoding"
+fi
+
+if [[ -n "$disable_recurrence" ]]; then
+    python_command="$python_command $disable_recurrence"
 fi
 
 # Conditionally add --resume
