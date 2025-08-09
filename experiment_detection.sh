@@ -38,7 +38,7 @@ dataset_path='Max-Ploter/detection-moving-mnist-easy'
 dataset='moving-mnist-medium'
 backbone='cnn'
 backbone_checkpoint=''
-
+batch_size=1
 self_per_cross_attn=1
 hidden_dim=128 # Perceiver hidden size
 learning_rate=1e-4
@@ -110,6 +110,7 @@ while [[ "$#" -gt 0 ]]; do
     --disable_fourier_encoding) disable_fourier_encoding="--disable_fourier_encoding"; ;;
     --input_axis) input_axis="$2"; shift ;;
     --disable_recurrence) disable_recurrence="--disable_recurrence"; ;;
+    --batch_size) batch_size="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -118,6 +119,7 @@ done
 python_command="srun python train.py \
     --model $model \
     --backbone $backbone \
+    --batch_size $batch_size \
     --object_detection \
     --dataset_path $dataset_path \
     --dataset $dataset \
