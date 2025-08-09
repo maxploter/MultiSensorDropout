@@ -249,7 +249,7 @@ class Perceiver(nn.Module):
     def forward(
             self,
             data,  # b ()
-            sensor_id,
+            sensor_id=0,
             latents=None,  # (b, num_latents, latent_dim)
             mask=None,
             return_embeddings=True,

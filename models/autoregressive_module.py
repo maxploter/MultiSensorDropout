@@ -118,6 +118,40 @@ class RecurrentVideoObjectModule(nn.Module):
         return result, targets
 
 
+class SingleFrameModule(nn.Module):
+    def __init__(self,
+                 backbone,
+                 recurrent_module,
+                 detection_head,
+                 ):
+        super().__init__()
+
+        self.backbone = backbone
+        self.view_module = recurrent_module
+        self.detection_head = detection_head
+
+    def forward(self, samples, targets: list = None):
+        assert samples.shape[1] == 1, "SingleFrameModule expects input with T=1"
+
+        src = samples.squeeze(1)  # Remove the time dimension, shape should be [B, C, H, W]
+
+        result = {'pred_logits': [], 'pred_boxes': []}
+
+        # No assumption about batch size here
+        # Process the single frame (T=1) for all batches
+        batch = self.backbone(src)
+
+        # Process through view module
+        out = self.view_module(data=batch)
+
+        # Generate detection output
+        out = self.detection_head(out)
+
+        result['pred_logits'] = out['pred_logits']
+        result['pred_boxes'] = out['pred_boxes']
+
+        return result, [t[0] for t in targets]
+
 def build_perceiver_ar_model(args, num_classes, input_image_view_size):
     backbone, perceiver, detection_head = build_model_perceiver(args, num_classes=num_classes, input_image_view_size=input_image_view_size)
 
