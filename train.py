@@ -48,6 +48,11 @@ def _get_parser():
     parser.add_argument('--disable_fourier_encoding', action='store_true',
                         help='Disable Fourier encoding in the Perceiver model')
 
+    # DETR specific parameters
+    parser.add_argument('--detr_nheads', type=int, default=4, help='Number of attention heads in DETR transformer')
+    parser.add_argument('--detr_enc_layers', type=int, default=3, help='Number of encoder layers in DETR transformer')
+    parser.add_argument('--detr_dec_layers', type=int, default=3, help='Number of decoder layers in DETR transformer')
+
 
     # * Matcher
     parser.add_argument('--set_cost_class', default=1, type=float,
