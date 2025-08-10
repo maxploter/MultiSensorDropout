@@ -61,6 +61,11 @@ disable_fourier_encoding=''
 input_axis=2
 disable_recurrence=''
 
+# DETR specific parameters
+detr_nheads=4
+detr_enc_layers=3
+detr_dec_layers=3
+
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
 echo "MASTER_ADDR="$MASTER_ADDR
@@ -111,6 +116,9 @@ while [[ "$#" -gt 0 ]]; do
     --input_axis) input_axis="$2"; shift ;;
     --disable_recurrence) disable_recurrence="--disable_recurrence"; ;;
     --batch_size) batch_size="$2"; shift ;;
+    --detr_nheads) detr_nheads="$2"; shift ;;
+    --detr_enc_layers) detr_enc_layers="$2"; shift ;;
+    --detr_dec_layers) detr_dec_layers="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -142,6 +150,9 @@ python_command="srun python train.py \
     --num_freq_bands $num_freq_bands \
     --input_axis $input_axis \
     --scheduler_step_size $scheduler_step_size \
+    --detr_nheads $detr_nheads \
+    --detr_enc_layers $detr_enc_layers \
+    --detr_dec_layers $detr_dec_layers \
     --world_size $WORLD_SIZE"
 
 if [[ -n "$resize_frame" ]]; then

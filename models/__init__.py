@@ -9,6 +9,7 @@ from models.center_point_conv_lstm import CenterPointConvLSTM
 from models.center_point_lstm import CenterPointLSTM
 from models.perceiver import build_model_perceiver, CenterPointDetectionHead, ObjectDetectionHead
 from models.perceiver_with_lstm import PerceiverWithLstm
+from models.detr import build_detr_model
 
 
 def build_model(args, input_image_view_size):
@@ -70,6 +71,9 @@ def build_model(args, input_image_view_size):
         )
     elif args.model == 'perceiver':
         backbone, recurrent_module, detection_head = build_model_perceiver(
+            args, num_classes=num_classes, input_image_view_size=input_image_view_size)
+    elif args.model == 'detr':
+        backbone, recurrent_module, detection_head = build_detr_model(
             args, num_classes=num_classes, input_image_view_size=input_image_view_size)
     elif args.model == 'non-recurrent':
         print("Using non-recurrent model")
