@@ -415,6 +415,11 @@ class DigitHead(nn.Module):
 
 class PostProcess(nn.Module):
     """ This module converts the model's output into the format expected by the coco api"""
+    def __init__(self, filter_background=False, background_label=-1):
+        super().__init__()
+        self.filter_background = filter_background
+        self.background_label = background_label
+
     @torch.no_grad()
     def forward(self, outputs, target_sizes):
         """ Perform the computation
@@ -430,7 +435,16 @@ class PostProcess(nn.Module):
         assert target_sizes.shape[1] == 2
 
         prob = F.softmax(out_logits, -1)
-        scores, labels = prob[..., :-1].max(-1)
+
+        if self.filter_background:
+            # Take argmax over all classes (including background)
+            scores, labels = prob.max(-1)
+            # If background_label is -1, but class indices go from 0..N, background is last class
+            background_idx = prob.shape[-1] - 1 if self.background_label == -1 else self.background_label
+        else:
+            # Take argmax over all but background (original behavior)
+            scores, labels = prob[..., :-1].max(-1)
+            background_idx = None
 
         # convert to [x0, y0, x1, y1] format
         boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
@@ -439,7 +453,17 @@ class PostProcess(nn.Module):
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
         boxes = boxes * scale_fct[:, None, :]
 
-        results = [{'scores': s, 'labels': l, 'boxes': b} for s, l, b in zip(scores, labels, boxes)]
+        results = []
+        for s, l, b in zip(scores, labels, boxes):
+            if self.filter_background:
+                keep = l != background_idx
+                results.append({
+                    'scores': s[keep],
+                    'labels': l[keep],
+                    'boxes': b[keep]
+                })
+            else:
+                results.append({'scores': s, 'labels': l, 'boxes': b})
 
         return results
 
