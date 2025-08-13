@@ -188,7 +188,7 @@ def evaluate(model, dataloader, criterion, postprocessors, epoch, device, evalua
 
             if evaluators:
               for evaluator in evaluators:
-                evaluator.update(out, targets_flat)
+                evaluator.update(out, targets_flat, samples)
 
             if map_metric is not None:
                 # 1. Prepare Predictions using Postprocessor
