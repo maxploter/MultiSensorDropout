@@ -1,4 +1,5 @@
 from .fiftyone_evaluator import FiftyOneEvaluator
+from .mot_evaluator import MOTMetricsEvaluator
 from .tide_evaluator import CocoJsonEvaluator
 
 def build_evaluators(args, postprocessor):
@@ -36,6 +37,10 @@ def build_evaluators(args, postprocessor):
         elif name == 'tide':
             evaluators.append(CocoJsonEvaluator(
                     postprocessor = postprocessor, output_dir=args.output_dir, checkpoint=args.resume, save_gt=True
+            ))
+        elif name == 'mot':
+            evaluators.append(MOTMetricsEvaluator(
+                postprocessor=postprocessor,
             ))
 
     return evaluators if evaluators else None
