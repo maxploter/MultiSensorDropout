@@ -115,13 +115,14 @@ class FiftyOneEvaluator:
         results = self.postprocessor(out, orig_sizes)
 
         # --- 2. Process and Save Input Images ---
-        if samples.shape[0] != 1:
-            print(
-                f"Warning: FiftyOneEvaluator expects batch size 1, but got {samples.shape[0]}. Processing only the first item.")
+        if samples.shape[0] != 1 and samples.shape[1] == 1:
+            video_tensor = samples.squeeze(1)
+        elif samples.shape[0] == 1:
+            video_tensor = samples.squeeze(0)
+        else:
+            raise ValueError("Expected samples to have shape [B, T, C, H, W] or [T, C, H, W] for single frame.")
 
-        video_tensor = samples.squeeze(0)
         # Infer model name for denormalization; default to (0, 1) if not found
-        model_name_for_stats = getattr(self.postprocessor, 'model_name', 'default')
         mean, std = self.mmnist_stat[self.model]
 
         image_filepaths = []
