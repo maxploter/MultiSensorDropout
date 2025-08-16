@@ -48,7 +48,7 @@ class MOTMetricsEvaluator:
             target = targets[frame_idx]
 
             gt_boxes = target['boxes']  # [num_objects, 4] in normalized [cx, cy, w, h] format
-            gt_ids = target.get('track_ids', torch.arange(len(gt_boxes)))  # Use provided IDs or assign sequential IDs
+            gt_ids = target['track_ids']
 
             # Use processed results if available (after post-processing)
             pred_scores = processed_results[frame_idx]['scores']
