@@ -43,7 +43,7 @@ tile_overlap=0.0
 num_queries=256
 weight_loss_center_point=5
 num_frames=20
-frame_dropout_pattern='000000111111'
+frame_dropout_pattern=''
 shuffle_views=''
 enc_layers=1
 self_per_cross_attn=1
@@ -51,6 +51,17 @@ max_freq=10
 num_freq_bands=6
 test_dataset_fraction=1.0
 resize_frame=''
+evaluators=''
+batch_size=1
+backbone_checkpoint=''
+enc_nheads_cross=1
+input_axis=2
+disable_fourier_encoding=''
+disable_recurrence=''
+detr_nheads=4
+detr_enc_layers=3
+detr_dec_layers=3
+dropout=0.0
 
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
@@ -93,6 +104,18 @@ while [[ "$#" -gt 0 ]]; do
     --num_freq_bands) num_freq_bands="$2"; shift ;;
     --test_dataset_fraction) test_dataset_fraction="$2"; shift ;;
     --resize_frame) resize_frame="$2"; shift ;;
+    --evaluators) evaluators="$2"; shift ;;
+    --batch_size) batch_size="$2"; shift ;;
+    --backbone_checkpoint) backbone_checkpoint="$2"; shift ;;
+    --enc_nheads_cross) enc_nheads_cross="$2"; shift ;;
+    --input_axis) input_axis="$2"; shift ;;
+    --disable_fourier_encoding) disable_fourier_encoding="--disable_fourier_encoding"; ;;
+    --disable_recurrence) disable_recurrence="--disable_recurrence"; ;;
+    --detr_nheads) detr_nheads="$2"; shift ;;
+    --detr_enc_layers) detr_enc_layers="$2"; shift ;;
+    --detr_dec_layers) detr_dec_layers="$2"; shift ;;
+    --dropout) dropout="$2"; shift ;;
+    --model) model="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -111,7 +134,6 @@ evaluate_checkpoint() {
       --dataset $dataset \
       --test_dataset_fraction $test_dataset_fraction \
       --num_frames $num_frames \
-      --frame_dropout_pattern $frame_dropout_pattern \
       --view_dropout_probs \
       --sampler_steps \
       --output_dir $output_dir \
@@ -126,7 +148,14 @@ evaluate_checkpoint() {
       --grid_size $grid_size \
       --tile_overlap $tile_overlap \
       --weight_loss_center_point $weight_loss_center_point \
-      --world_size $WORLD_SIZE"
+      --world_size $WORLD_SIZE \
+      --batch_size $batch_size \
+      --enc_nheads_cross $enc_nheads_cross \
+      --input_axis $input_axis \
+      --detr_nheads $detr_nheads \
+      --detr_enc_layers $detr_enc_layers \
+      --detr_dec_layers $detr_dec_layers \
+      --dropout $dropout"
 
     if [[ -n "$wandb_id" ]]; then
         python_command="$python_command --wandb_id $wandb_id"
@@ -138,6 +167,26 @@ evaluate_checkpoint() {
 
     if [[ -n "$resize_frame" ]]; then
         python_command="$python_command --resize_frame $resize_frame"
+    fi
+
+    if [[ -n "$frame_dropout_pattern" ]]; then
+        python_command="$python_command --frame_dropout_pattern $frame_dropout_pattern"
+    fi
+    
+    if [[ -n "$evaluators" ]]; then
+        python_command="$python_command --evaluators $evaluators"
+    fi
+
+    if [[ -n "$disable_fourier_encoding" ]]; then
+        python_command="$python_command $disable_fourier_encoding"
+    fi
+
+    if [[ -n "$disable_recurrence" ]]; then
+        python_command="$python_command $disable_recurrence"
+    fi
+
+    if [[ -n "$backbone_checkpoint" ]]; then
+        python_command="$python_command --backbone_checkpoint $backbone_checkpoint"
     fi
 
     eval "$python_command"

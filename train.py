@@ -16,6 +16,7 @@ from dataset import build_dataset
 from engine import train_one_epoch, evaluate
 from models import build_model
 from models.ade_post_processor import PostProcessTrajectory, MultiHeadPostProcessTrajectory
+from models.evaluators import build_evaluators
 from models.perceiver import PostProcess
 from models.set_criterion import build_criterion
 from util.misc import collate_fn, is_main_process, get_sha, get_rank
@@ -73,6 +74,10 @@ def _get_parser():
     parser.add_argument('--eos_coef', default=0.1, type=float,
                         help="Relative classification weight of the no-object class")
 
+    # Evaluators
+    parser.add_argument('--evaluators', nargs='*', type=str, default=[], 
+                        help='List of evaluators to use (e.g., fiftyone, tide)')
+    
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training')
     parser.add_argument('--output_dir', type=str, default=None, required=True, help='Output directory')
 
@@ -264,7 +269,9 @@ def main(args):
         dataset_test_blind.set_epoch(start_epoch)
 
     if args.eval:
-        test_stats = evaluate(model, dataloader_test, criterion, postprocessors, start_epoch, device)
+        box_postprocessor = postprocessors['bbox'] if 'bbox' in postprocessors else None
+        evaluators = build_evaluators(args, postprocessor=box_postprocessor)
+        test_stats = evaluate(model, dataloader_test, criterion, postprocessors, start_epoch, device, evaluators=evaluators)
         blind_stats = {}
         if args.frame_dropout_pattern is not None:
             dataset_test_blind = build_dataset('test', args, frame_dropout_pattern=args.frame_dropout_pattern)
