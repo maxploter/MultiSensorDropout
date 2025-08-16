@@ -2,6 +2,8 @@ import torch
 import json
 from pathlib import Path
 
+from util import box_ops
+
 
 class CocoJsonEvaluator:
     """
