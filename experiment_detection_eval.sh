@@ -133,6 +133,7 @@ evaluate_checkpoint() {
       --dataset_path $dataset_path \
       --dataset $dataset \
       --test_dataset_fraction $test_dataset_fraction \
+      --train_dataset_fraction 0.005 \
       --num_frames $num_frames \
       --view_dropout_probs \
       --sampler_steps \
