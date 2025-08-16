@@ -22,6 +22,7 @@ class MovingMNISTHuggingFaceAdapter:
 					'boxes': torch.tensor(sample['bboxes'][i], dtype=torch.float),
 					'labels': torch.tensor(sample['bboxes_labels'][i], dtype=torch.int64),
 					'orig_size': torch.tensor([128,128], dtype=torch.int64), # TODO: fix this
+                    'track_ids': torch.tensor(sample['track_ids'][i], dtype=torch.int64),
 				})
 			else:
 				targets.append({

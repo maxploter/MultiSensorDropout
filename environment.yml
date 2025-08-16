@@ -13,3 +13,6 @@ dependencies:
   - conda-forge::transformers
   - pip:
       - detection-moving-mnist==0.4.3
+      - fiftyone==0.1.0
+      - tidecv==0.1.0
+      - motmetrics=1.4.0
