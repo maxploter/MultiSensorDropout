@@ -64,7 +64,9 @@ class FiftyOneEvaluator:
 
         # --- 4. Initialize Data Containers ---
         self.fiftyone_samples = []
-        self.video_idx = 0  # To give each video/batch a unique ID
+        self.video_idx = 0  # To give each video a unique ID
+        self.frame_idx = 0  # To track the frame index within a video
+        self.frames_per_video = 20  # Number of frames per video
 
         # --- 5. Model-specific stats for denormalization ---
         # This is for visualizing the input images correctly.
@@ -104,29 +106,33 @@ class FiftyOneEvaluator:
         """
         Processes a single batch of model outputs and targets to create FiftyOne samples.
         This method is called for each batch in the evaluation loop.
+
+        The function handles sequential batches by organizing frames into videos of
+        self.frames_per_video (20) frames each. Time dimension (T) is expected to be 1
+        for consistency, and the batch dimension contains sequential frames.
         """
         # --- 1. Process Predictions using Postprocessor ---
-        # The postprocessor expects a batch of original image sizes.
-        # For video, we assume all frames have the same size.
-        num_frames = samples.shape[1]  # T from B, T, C, H, W
+        # Get batch size (number of frames in this batch)
+        batch_size = samples.shape[0]
+        num_frames = samples.shape[1]  # T from B, T, C, H, W (expected to be 1)
+
+        if num_frames != 1:
+            raise ValueError("Expected T dimension to be 1, got {}".format(num_frames))
+
         orig_sizes = torch.stack([t['orig_size'] for t in targets]).to(out['pred_logits'].device)
 
         # `results` is a list of dicts, one per frame, with 'scores', 'labels', 'boxes'
         results = self.postprocessor(out, orig_sizes)
 
         # --- 2. Process and Save Input Images ---
-        if samples.shape[0] != 1 and samples.shape[1] == 1:
-            video_tensor = samples.squeeze(1)
-        elif samples.shape[0] == 1:
-            video_tensor = samples.squeeze(0)
-        else:
-            raise ValueError("Expected samples to have shape [B, T, C, H, W] or [T, C, H, W] for single frame.")
+        # Extract the frames from the tensor
+        video_tensor = samples.squeeze(1)  # Remove T dimension, shape becomes [B, C, H, W]
 
         # Infer model name for denormalization; default to (0, 1) if not found
         mean, std = self.mmnist_stat[self.model]
 
         image_filepaths = []
-        for i in range(num_frames):
+        for i in range(batch_size):
             img_tensor = denormalize_image(video_tensor[i], mean, std)
             img_np = img_tensor.permute(1, 2, 0).cpu().numpy()
 
@@ -134,12 +140,22 @@ class FiftyOneEvaluator:
                 img_np = np.squeeze(img_np, axis=-1)
 
             img_uint8 = np.clip(img_np * 255, 0, 255).astype(np.uint8)
-            filepath = os.path.join(self.frames_dir, f"video_{self.video_idx:04d}_frame_{i:04d}.png")
+
+            # Calculate current video and frame indices
+            current_video_idx = self.video_idx
+            current_frame_idx = self.frame_idx
+
+            filepath = os.path.join(self.frames_dir, f"video_{current_video_idx:04d}_frame_{current_frame_idx:04d}.png")
             imageio.imwrite(filepath, img_uint8)
             image_filepaths.append(filepath)
 
+            # Update frame index and potentially video index
+            self.frame_idx = (self.frame_idx + 1) % self.frames_per_video
+            if self.frame_idx == 0:
+                self.video_idx += 1
+
         # --- 3. Create FiftyOne Samples for each frame ---
-        for i in range(num_frames):
+        for i in range(batch_size):
             sample = fo.Sample(filepath=image_filepaths[i])
 
             # a) Add Ground Truth Detections
@@ -160,7 +176,7 @@ class FiftyOneEvaluator:
             pred_boxes_pixel = res_for_frame['boxes']
 
             if pred_boxes_pixel.numel() > 0:
-                fo_pred_boxes = self._convert_pred_boxes_to_fo_format(pred_boxes_pixel, orig_sizes[0])
+                fo_pred_boxes = self._convert_pred_boxes_to_fo_format(pred_boxes_pixel, orig_sizes[i])
                 pred_scores = res_for_frame['scores'].cpu().numpy()
                 pred_labels = res_for_frame['labels'].cpu().numpy()
 
@@ -175,8 +191,6 @@ class FiftyOneEvaluator:
                     ]
                 )
             self.fiftyone_samples.append(sample)
-
-        self.video_idx += 1
 
     def accumulate(self):
         """
