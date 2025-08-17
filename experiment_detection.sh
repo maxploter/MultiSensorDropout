@@ -60,6 +60,7 @@ num_freq_bands=6
 disable_fourier_encoding=''
 input_axis=2
 disable_recurrence=''
+disable_filter_empty_frames=''
 
 # DETR specific parameters
 detr_nheads=4
@@ -119,6 +120,7 @@ while [[ "$#" -gt 0 ]]; do
     --detr_nheads) detr_nheads="$2"; shift ;;
     --detr_enc_layers) detr_enc_layers="$2"; shift ;;
     --detr_dec_layers) detr_dec_layers="$2"; shift ;;
+    --disable_filter_empty_frames) disable_filter_empty_frames="--disable_filter_empty_frames"; ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -169,6 +171,10 @@ fi
 
 if [[ -n "$disable_recurrence" ]]; then
     python_command="$python_command $disable_recurrence"
+fi
+
+if [[ -n "$disable_filter_empty_frames" ]]; then
+    python_command="$python_command $disable_filter_empty_frames"
 fi
 
 # Conditionally add --resume
