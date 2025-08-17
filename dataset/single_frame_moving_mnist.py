@@ -35,6 +35,8 @@ class SingleDetectionMovingMNISTWrapper(Dataset):
         norm_transforms,
         train,
         dataset_fraction=1,
+        filter_empty_frames=True,
+        **kwargs
     ):
         self.dataset = dataset
         self.transforms = transforms
@@ -43,6 +45,7 @@ class SingleDetectionMovingMNISTWrapper(Dataset):
         self.train = train
         self.input_image_view_size = (0, 0)  # stub for compatibility with other datasets
         self.view_dropout_prob = -1  # stub for compatibility with other datasets
+        self.filter_empty_frames = filter_empty_frames
 
         self.indices = list(range(len(self.dataset)))
         if self.dataset_fraction < 1:
@@ -51,10 +54,12 @@ class SingleDetectionMovingMNISTWrapper(Dataset):
         # Create a mapping from flat index to (video_idx, frame_idx)
         self.frame_mapping = []
         filtered_frames = 0
-        print("Loading dataset and filtering empty frames...")
+        total_frames = 0
+        print(f"Loading dataset {'and filtering empty frames' if self.filter_empty_frames else ''}...")
         for i, video_idx in tqdm(enumerate(self.indices), total=len(self.indices), desc="Processing videos"):
             video, targets = self.dataset[video_idx]
             num_frames = video.shape[0]  # Assuming video shape is [frames, channels, height, width]
+            total_frames += num_frames
 
             for frame_idx in range(num_frames):
                 # Check if the frame has objects
@@ -64,10 +69,17 @@ class SingleDetectionMovingMNISTWrapper(Dataset):
                 if boxes_tensor.numel() == 0:
                     has_objects = False
                     filtered_frames += 1
-                if has_objects:
+
+                # Add frame to mapping if it has objects or if we're not filtering empty frames
+                if has_objects or not self.filter_empty_frames:
                     self.frame_mapping.append((video_idx, frame_idx))
-        print(
-            f"Dataset loaded with {len(self.frame_mapping)} frames after filtering empty frames ({filtered_frames} frames were filtered out).")
+
+        if self.filter_empty_frames:
+            print(f"Dataset loaded with {len(self.frame_mapping)} frames after filtering empty frames ({filtered_frames} frames were filtered out, {filtered_frames/total_frames:.2%} of total).")
+        else:
+            print(f"Dataset loaded with {len(self.frame_mapping)} frames (no filtering applied).")
+        print(f"Total number of frames in the dataset: {total_frames}")
+        print(f"Number of frames included in the mapping: {len(self.frame_mapping)} ({len(self.frame_mapping)/total_frames:.2%} of total)")
 
     def step_epoch(self):
         pass

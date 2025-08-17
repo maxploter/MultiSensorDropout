@@ -34,6 +34,7 @@ class DetectionMovingMNISTEasyWrapper(Dataset):
 			norm_transforms,
 			train,
 			dataset_fraction=1,
+            **kwargs
 	):
 		self.dataset = dataset
 		self.transforms = transforms

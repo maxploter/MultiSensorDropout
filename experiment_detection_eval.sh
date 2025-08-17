@@ -62,6 +62,7 @@ detr_nheads=4
 detr_enc_layers=3
 detr_dec_layers=3
 dropout=0.0
+disable_filter_empty_frames=''
 
 
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
@@ -116,6 +117,7 @@ while [[ "$#" -gt 0 ]]; do
     --detr_dec_layers) detr_dec_layers="$2"; shift ;;
     --dropout) dropout="$2"; shift ;;
     --model) model="$2"; shift ;;
+    --disable_filter_empty_frames) disable_filter_empty_frames="--disable_filter_empty_frames"; ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -188,6 +190,10 @@ evaluate_checkpoint() {
 
     if [[ -n "$backbone_checkpoint" ]]; then
         python_command="$python_command --backbone_checkpoint $backbone_checkpoint"
+    fi
+
+    if [[ -n "$disable_filter_empty_frames" ]]; then
+        python_command="$python_command $disable_filter_empty_frames"
     fi
 
     eval "$python_command"

@@ -92,6 +92,7 @@ def _get_parser():
     parser.add_argument('--train_dataset_fraction', type=float, default=1.0, help='Train dataset fraction')
     parser.add_argument('--test_dataset_fraction', type=float, default=1.0, help='Test dataset fraction')
     parser.add_argument('--frame_dropout_pattern', type=str, required=False, help='Frame dropout pattern')
+    parser.add_argument('--disable_filter_empty_frames', action='store_true', help='Disable filtering of empty frames without objects')
     parser.add_argument('--view_dropout_probs', nargs='*', type=float,
                         default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85], help='List of frame dropout probabilities')
     parser.add_argument('--sampler_steps', nargs='*', type=int,

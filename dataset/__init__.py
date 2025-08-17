@@ -83,7 +83,8 @@ def build_dataset(split, args, frame_dropout_pattern=None):
                 transforms=transforms,
                 norm_transforms=norm_transforms,
                 train=split == 'train',
-                dataset_fraction=dataset_fraction
+                dataset_fraction=dataset_fraction,
+                filter_empty_frames= not args.disable_filter_empty_frames,
             )
 
     transforms, norm_transforms = make_mmist_transforms(split, img_size, frame_dropout_pattern, args)
