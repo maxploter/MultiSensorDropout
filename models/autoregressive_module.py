@@ -81,6 +81,9 @@ class RecurrentVideoObjectModule(nn.Module):
                  backbone,
                  recurrent_module,
                  detection_head,
+                 supervision_dropout_strategy='none',  # 'none', 'random', 'fixed_window', 'variable_window', 'last_only'
+                 supervision_dropout_rate=0.3,
+                 supervision_window_size=5,
                  ):
         super().__init__()
 
@@ -88,15 +91,49 @@ class RecurrentVideoObjectModule(nn.Module):
         self.recurrent_module = recurrent_module
         self.detection_head = detection_head
 
+        # Supervision dropout parameters
+        self.supervision_dropout_strategy = supervision_dropout_strategy
+        self.supervision_dropout_rate = supervision_dropout_rate
+        self.supervision_window_size = supervision_window_size
+
     def forward(self, samples, targets: list = None):
         src = samples.permute(1, 0, 2, 3, 4)  # change dimension order from BT___ to TB___
 
         device = None
         result = {'pred_logits': [], 'pred_boxes': []}
+        dropped_timesteps = []
         hs = None
 
         assert len(targets) == 1
         targets = targets[0] # We have an assumption that batch size is 1
+
+        num_timesteps = len(src)
+
+        # Determine which timesteps to supervise based on the dropout strategy
+        supervise_timesteps = torch.ones(num_timesteps, dtype=torch.bool)
+
+        if self.training and self.supervision_dropout_strategy != 'none':
+            if self.supervision_dropout_strategy == 'random':
+                # Randomly drop supervision with probability supervision_dropout_rate
+                supervise_timesteps = torch.rand(num_timesteps) > self.supervision_dropout_rate
+
+            elif self.supervision_dropout_strategy == 'fixed_window':
+                # Drop supervision for the first window_size timesteps
+                supervise_timesteps[:self.supervision_window_size] = False
+
+            elif self.supervision_dropout_strategy == 'variable_window':
+                # Randomly select a window size between 0 and supervision_window_size
+                window_size = torch.randint(0, self.supervision_window_size + 1, (1,)).item()
+                supervise_timesteps[:window_size] = False
+
+            elif self.supervision_dropout_strategy == 'last_only':
+                # Only supervise the last timestep
+                supervise_timesteps.fill_(False)
+                supervise_timesteps[-1] = True
+
+        # Always keep predictions for all timesteps (we just don't compute loss for dropped ones)
+        full_pred_logits = []
+        full_pred_boxes = []
 
         for timestamp, batch in enumerate(src):
             batch = self.backbone(batch)
@@ -109,11 +146,51 @@ class RecurrentVideoObjectModule(nn.Module):
             q = hs
             out = self.detection_head(q)
 
-            result['pred_logits'].extend(out['pred_logits']) # [QC]
-            result['pred_boxes'].extend(out['pred_boxes'])
+            # Always store predictions for all timesteps
+            full_pred_logits.append(out['pred_logits'])
+            full_pred_boxes.append(out['pred_boxes'])
 
-        result['pred_logits'] = torch.stack(result['pred_logits'])
-        result['pred_boxes'] = torch.stack(result['pred_boxes'])
+            # But only include supervised timesteps in the result for loss computation
+            if supervise_timesteps[timestamp]:
+                result['pred_logits'].extend(out['pred_logits'])
+                result['pred_boxes'].extend(out['pred_boxes'])
+            else:
+                dropped_timesteps.append(timestamp)
+
+        # Store full predictions for inference
+        result['full_pred_logits'] = torch.stack(full_pred_logits)
+        result['full_pred_boxes'] = torch.stack(full_pred_boxes)
+
+        # Only stack if there are supervised timesteps
+        if len(result['pred_logits']) > 0:
+            result['pred_logits'] = torch.stack(result['pred_logits'])
+            result['pred_boxes'] = torch.stack(result['pred_boxes'])
+        else:
+            # Fallback in case all timesteps were dropped (should be rare)
+            result['pred_logits'] = result['full_pred_logits'][-1:]
+            result['pred_boxes'] = result['full_pred_boxes'][-1:]
+
+        # Store the dropped timesteps for logging/debugging
+        result['dropped_timesteps'] = dropped_timesteps
+
+        # If we're not in training mode, use all predictions
+        if not self.training:
+            result['pred_logits'] = result['full_pred_logits']
+            result['pred_boxes'] = result['full_pred_boxes']
+            # No filtering of targets during inference
+        else:
+            # Filter targets to match the supervised timesteps
+            # Since targets is a list (one element per timestep), we need to filter it accordingly
+            filtered_targets = []
+            for t in range(num_timesteps):
+                if supervise_timesteps[t]:
+                    filtered_targets.append(targets[t])
+
+            # If we filtered out all timesteps, use just the last one as fallback
+            if self.training and len(filtered_targets) == 0:
+                filtered_targets = [targets[-1]]
+
+            targets = filtered_targets
 
         return result, targets
 

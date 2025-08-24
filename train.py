@@ -54,6 +54,14 @@ def _get_parser():
     parser.add_argument('--detr_enc_layers', type=int, default=3, help='Number of encoder layers in DETR transformer')
     parser.add_argument('--detr_dec_layers', type=int, default=3, help='Number of decoder layers in DETR transformer')
 
+    # Supervision dropout parameters for recurrent models
+    parser.add_argument('--supervision_dropout_strategy', type=str, default='none',
+                        choices=['none', 'random', 'fixed_window', 'variable_window', 'last_only'],
+                        help='Strategy for dropping supervision at certain timesteps')
+    parser.add_argument('--supervision_dropout_rate', type=float, default=0.3,
+                        help='Probability of dropping supervision at each timestep (for random strategy)')
+    parser.add_argument('--supervision_window_size', type=int, default=5,
+                        help='Window size for window-based supervision dropout strategies')
 
     # * Matcher
     parser.add_argument('--set_cost_class', default=1, type=float,
