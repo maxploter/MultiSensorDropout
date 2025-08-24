@@ -62,6 +62,11 @@ input_axis=2
 disable_recurrence=''
 disable_filter_empty_frames=''
 
+# Supervision dropout parameters for recurrent models
+supervision_dropout_strategy='none'
+supervision_dropout_rate=0.3
+supervision_window_size=5
+
 # DETR specific parameters
 detr_nheads=4
 detr_enc_layers=3
@@ -121,6 +126,9 @@ while [[ "$#" -gt 0 ]]; do
     --detr_enc_layers) detr_enc_layers="$2"; shift ;;
     --detr_dec_layers) detr_dec_layers="$2"; shift ;;
     --disable_filter_empty_frames) disable_filter_empty_frames="--disable_filter_empty_frames"; ;;
+    --supervision_dropout_strategy) supervision_dropout_strategy="$2"; shift ;;
+    --supervision_dropout_rate) supervision_dropout_rate="$2"; shift ;;
+    --supervision_window_size) supervision_window_size="$2"; shift ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -155,6 +163,9 @@ python_command="srun python train.py \
     --detr_nheads $detr_nheads \
     --detr_enc_layers $detr_enc_layers \
     --detr_dec_layers $detr_dec_layers \
+    --supervision_dropout_strategy $supervision_dropout_strategy \
+    --supervision_dropout_rate $supervision_dropout_rate \
+    --supervision_window_size $supervision_window_size \
     --world_size $WORLD_SIZE"
 
 if [[ -n "$resize_frame" ]]; then
