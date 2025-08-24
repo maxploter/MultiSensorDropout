@@ -161,6 +161,9 @@ class RecurrentVideoObjectModule(nn.Module):
         result['full_pred_logits'] = torch.stack(full_pred_logits)
         result['full_pred_boxes'] = torch.stack(full_pred_boxes)
 
+        # Store the dropped timesteps for logging/debugging
+        result['dropped_timesteps'] = dropped_timesteps
+
         # Only stack if there are supervised timesteps
         if len(result['pred_logits']) > 0:
             result['pred_logits'] = torch.stack(result['pred_logits'])
@@ -170,15 +173,8 @@ class RecurrentVideoObjectModule(nn.Module):
             result['pred_logits'] = result['full_pred_logits'][-1:]
             result['pred_boxes'] = result['full_pred_boxes'][-1:]
 
-        # Store the dropped timesteps for logging/debugging
-        result['dropped_timesteps'] = dropped_timesteps
-
         # If we're not in training mode, use all predictions
-        if not self.training:
-            result['pred_logits'] = result['full_pred_logits']
-            result['pred_boxes'] = result['full_pred_boxes']
-            # No filtering of targets during inference
-        else:
+        if self.training and self.supervision_dropout_strategy != 'none':
             # Filter targets to match the supervised timesteps
             # Since targets is a list (one element per timestep), we need to filter it accordingly
             filtered_targets = []
@@ -187,7 +183,7 @@ class RecurrentVideoObjectModule(nn.Module):
                     filtered_targets.append(targets[t])
 
             # If we filtered out all timesteps, use just the last one as fallback
-            if self.training and len(filtered_targets) == 0:
+            if len(filtered_targets) == 0:
                 filtered_targets = [targets[-1]]
 
             targets = filtered_targets

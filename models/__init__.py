@@ -105,6 +105,9 @@ def build_model(args, input_image_view_size):
             backbone=backbone,
             recurrent_module=recurrent_module,
             detection_head=detection_head,
+            supervision_dropout_strategy=args.supervision_dropout_strategy,
+            supervision_dropout_rate=args.supervision_dropout_rate,
+            supervision_window_size=args.supervision_window_size,
         )
 
     else:
