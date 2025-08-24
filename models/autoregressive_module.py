@@ -121,7 +121,7 @@ class RecurrentVideoObjectModule(nn.Module):
                 window_size = self.supervision_window_size
 
                 # Apply a random shift to the window position
-                max_start_pos = num_timesteps - window_size
+                max_start_pos = num_timesteps - window_size - 1
                 start_pos = torch.randint(0, max_start_pos + 1, (1,)).item()
                 supervise_timesteps[start_pos:start_pos + window_size] = False
 
@@ -131,7 +131,7 @@ class RecurrentVideoObjectModule(nn.Module):
                 window_size = torch.randint(0, self.supervision_window_size + 1, (1,)).item()
 
                 # Apply a random shift to the window position
-                max_start_pos = num_timesteps - window_size
+                max_start_pos = num_timesteps - window_size - 1
                 start_pos = torch.randint(0, max_start_pos + 1, (1,)).item()
                 supervise_timesteps[start_pos:start_pos + window_size] = False
 
