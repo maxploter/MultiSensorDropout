@@ -156,8 +156,8 @@ class RecurrentVideoObjectModule(nn.Module):
             out = self.detection_head(q)
 
             # Always store predictions for all timesteps
-            full_pred_logits.append(out['pred_logits'])
-            full_pred_boxes.append(out['pred_boxes'])
+            full_pred_logits.extend(out['pred_logits'])
+            full_pred_boxes.extend(out['pred_boxes'])
 
             # But only include supervised timesteps in the result for loss computation
             if supervise_timesteps[timestamp]:
