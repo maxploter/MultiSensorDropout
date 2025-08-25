@@ -138,7 +138,20 @@ class RecurrentVideoObjectModule(nn.Module):
             elif self.supervision_dropout_strategy == 'last_only':
                 # Only supervise the last timestep
                 supervise_timesteps.fill_(False)
-                supervise_timesteps[-1] = True
+
+                # Check if the last timestep has ground truth objects
+                last_idx = num_timesteps - 1
+                if len(targets[last_idx]['boxes']) > 0:
+                    # Use last timestep if it has ground truth objects
+                    supervise_timesteps[last_idx] = True
+                else:
+                    # Find the last timestep with ground truth objects
+                    valid_timestep_found = False
+                    for t in range(num_timesteps - 1, -1, -1):
+                        if len(targets[t]['boxes']) > 0:
+                            supervise_timesteps[t] = True
+                            valid_timestep_found = True
+                            break
 
         # Always keep predictions for all timesteps (we just don't compute loss for dropped ones)
         full_pred_logits = []
@@ -173,14 +186,20 @@ class RecurrentVideoObjectModule(nn.Module):
         # Store the dropped timesteps for logging/debugging
         result['dropped_timesteps'] = dropped_timesteps
 
+        last_idx = num_timesteps - 1
         # Only stack if there are supervised timesteps
         if len(result['pred_logits']) > 0:
             result['pred_logits'] = torch.stack(result['pred_logits'])
             result['pred_boxes'] = torch.stack(result['pred_boxes'])
         else:
+            for t in range(num_timesteps - 1, -1, -1):
+                if len(targets[t]['boxes']) > 0:
+                    last_idx = t
+                    break
+
             # Fallback in case all timesteps were dropped (should be rare)
-            result['pred_logits'] = result['full_pred_logits'][-1:]
-            result['pred_boxes'] = result['full_pred_boxes'][-1:]
+            result['pred_logits'] = result['full_pred_logits'][last_idx:last_idx+1]
+            result['pred_boxes'] = result['full_pred_boxes'][last_idx:last_idx+1]
 
         # If we're not in training mode, use all predictions
         if self.training and self.supervision_dropout_strategy != 'none':
@@ -193,7 +212,7 @@ class RecurrentVideoObjectModule(nn.Module):
 
             # If we filtered out all timesteps, use just the last one as fallback
             if len(filtered_targets) == 0:
-                filtered_targets = [targets[-1]]
+                filtered_targets = [targets[last_idx:last_idx+1]]
 
             targets = filtered_targets
 
