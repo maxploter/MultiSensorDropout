@@ -61,6 +61,7 @@ disable_fourier_encoding=''
 input_axis=2
 disable_recurrence=''
 disable_filter_empty_frames=''
+amodal_bounding_boxes=''
 
 # Supervision dropout parameters for recurrent models
 supervision_dropout_strategy='none'
@@ -129,6 +130,7 @@ while [[ "$#" -gt 0 ]]; do
     --supervision_dropout_strategy) supervision_dropout_strategy="$2"; shift ;;
     --supervision_dropout_rate) supervision_dropout_rate="$2"; shift ;;
     --supervision_window_size) supervision_window_size="$2"; shift ;;
+    --amodal_bounding_boxes) amodal_bounding_boxes="--amodal_bounding_boxes"; ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -186,6 +188,10 @@ fi
 
 if [[ -n "$disable_filter_empty_frames" ]]; then
     python_command="$python_command $disable_filter_empty_frames"
+fi
+
+if [[ -n "$amodal_bounding_boxes" ]]; then
+    python_command="$python_command $amodal_bounding_boxes"
 fi
 
 # Conditionally add --resume

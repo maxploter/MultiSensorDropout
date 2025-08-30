@@ -42,6 +42,7 @@ def _get_parser():
     parser.add_argument('--weight_loss_bce', type=int, default=1, help='Weight loss binary cross entropy')
     parser.add_argument('--shuffle_views', action='store_true', help='Shuffle views during inference')
     parser.add_argument('--object_detection', action='store_true', help='Use object detection prediction head')
+    parser.add_argument('--amodal_bounding_boxes', action='store_true', help='Use amodal bounding boxes')
     parser.add_argument('--disable_recurrence', action='store_true', help='Disable recurrent module for single frame processing')
     parser.add_argument('--resize_frame', type=int, help='Resize frame to this size')
     parser.add_argument('--dilation', action='store_true',

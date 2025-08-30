@@ -366,17 +366,23 @@ class CenterPointDetectionHead(nn.Module):
         return out
 
 class ObjectDetectionHead(nn.Module):
-    def __init__(self, num_classes, latent_dim):
+    def __init__(self, num_classes, latent_dim, amodal=False, amodal_scale=2.0):
         """ Initializes the model.
         Parameters:
             num_classes: number of object classes
             num_latents: number of object queries, ie detection slot. This is the maximal number of objects
                          model can detect in a single image. For COCO, we recommend 100 queries.
             latent_dim: dimension of the latent object query.
+            amodal: whether to use amodal prediction (allowing center points to extend beyond image boundaries)
+            amodal_factor: multiplier for the normalized coordinates during post-processing
+                          (default: 1.0, which means no expansion)
         """
         super().__init__()
         self.class_embed = nn.Linear(latent_dim, num_classes + 1)
         self.center_points_embed = MLP(latent_dim, latent_dim, 4, 3)
+        self.amodal = amodal
+        self.amodal_scale = amodal_scale
+        self.offset = (amodal_scale - 1.0) / 2
 
     def forward(self, hs: Tensor):
         """Forward pass of the ObjectDetectionHead.
@@ -391,9 +397,23 @@ class ObjectDetectionHead(nn.Module):
                                (center_x, center_y, height, width). These values are normalized in [0, 1],
                                relative to the size of each individual image (disregarding possible padding).
                                See PostProcess for information on how to retrieve the unnormalized bounding box.
+                               When amodal=True, only center coordinates (cx, cy) can go beyond [0,1] range.
         """
         outputs_class = self.class_embed(hs)
         outputs_coord = self.center_points_embed(hs).sigmoid()
+
+        if self.amodal:
+            # Apply amodal scaling only to center coordinates (cx, cy)
+            # Keep width and height normalized between 0 and 1
+            center_points = outputs_coord[..., :2]  # cx, cy
+            wh = outputs_coord[..., 2:]  # width, height
+
+            # Scale only the center points
+            center_points = center_points * self.amodal_scale - self.offset
+
+            # Recombine the scaled center points with the original width and height
+            outputs_coord = torch.cat([center_points, wh], dim=-1)
+
         out = {'pred_logits': outputs_class, 'pred_boxes': outputs_coord}
         return out
 
@@ -525,7 +545,8 @@ def build_model_perceiver(args, num_classes, input_image_view_size):
         if args.object_detection:
             classification_heads = ObjectDetectionHead(
                 num_classes=num_classes,
-                latent_dim=args.hidden_dim
+                latent_dim=args.hidden_dim,
+                amodal=args.amodal_bounding_boxes,
             )
         else:
             classification_heads = CenterPointDetectionHead(

@@ -58,10 +58,15 @@ def build_dataset(split, args, frame_dropout_pattern=None):
             detection=args.object_detection
         )
     else:
-        print(f"Generating {split} huggingface MovingMNIST dataset {args.dataset_path}...")
+        print(f"Generating {split} huggingface MovingMNIST {args.amodal_bounding_boxes} dataset {args.dataset_path}...")
         # Load Hugging Face dataset split
         hf_dataset = load_dataset(args.dataset_path, split=split)
-        dataset = MovingMNISTHuggingFaceAdapter(hf_dataset, num_frames=args.num_frames, detection=args.object_detection)
+        dataset = MovingMNISTHuggingFaceAdapter(
+            hf_dataset,
+            num_frames=args.num_frames,
+            detection=args.object_detection,
+            amodal=args.amodal_bounding_boxes
+        )
 
     # Determine dataset fraction
     dataset_fraction = args.train_dataset_fraction if split == 'train' else args.test_dataset_fraction
